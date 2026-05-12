@@ -22,15 +22,26 @@ pip install torch torchvision tqdm matplotlib
 
 ## 文件结构
 ```
-ResNeXt_Project/
+AI/
 ├── data/                   # 数据集（已划分 train/val/test）
+│   ├── train/              # 训练集（7 份数据）
+│   │   ├── accordion/
+│   │   ├── airplanes/
+│   │   └── ... (共 101 个类别)
+│   ├── val/                # 验证集（2 份数据）
+│   │   └── ...
+│   └── test/               # 测试集（1 份数据）
+│       └── ...
 ├── model.py                # ResNeXt 模型定义（手动实现）
 ├── mydataset.py            # 数据加载与增强
 ├── train.py                # 训练与验证脚本
 ├── test.py                 # 测试脚本
-├── weights/                # 保存的最佳权重 best.pth / last.pth
-├── train_log.txt           # 训练日志
-├── curves.png              # 训练曲线图
+├── utils.py                # 辅助工具函数（单图预测、权重加载等）
+├── model-out/              # 保存的模型权重
+│   ├── best.pth            # 最佳验证准确率对应的权重
+│   └── last.pth            # 最后一个 epoch 的权重
+├── train_log.txt           # 训练日志（每个 epoch 的 loss 和 acc）
+├── requirements.txt        # 项目依赖包列表
 └── README.md               # 本说明文档
 ```
 
@@ -131,20 +142,145 @@ self.conv3 = nn.Conv2d(mid_ch, out_ch, 1, bias=False)
 ---
 
 ## 使用说明
-1. **训练**  
-   ```bash
-   python train.py
-   ```
-   训练日志将保存至 `train_log.txt`，最佳权重保存在 `weights/best.pth`。
 
-2. **测试**  
-   ```bash
-   python test.py
-   ```
-   将输出测试集准确率。
+### 1. 环境准备
 
-3. **单张图片预测**（可自行补充）  
-   加载模型和权重，对任意图片进行推理并输出类别。
+**安装依赖**（推荐在虚拟环境中进行）：
+```bash
+pip install -r requirements.txt
+```
+
+**验证环境**：
+```bash
+python -c "import torch; print(f'PyTorch {torch.__version__}'); print(f'CUDA Available: {torch.cuda.is_available()}')"
+```
+
+---
+
+### 2. 训练模型
+
+执行以下命令开始训练：
+```bash
+python train.py
+```
+
+**训练过程说明**：
+- ✅ 将在 `model-out/` 目录下自动创建权重保存文件夹
+- ✅ 每个 epoch 的训练日志会记录在 `train_log.txt`
+- ✅ 根据验证集准确率自动保存最佳权重为 `model-out/best.pth`
+- ✅ 每个 epoch 完成后保存当前权重为 `model-out/last.pth`
+- ✅ 共训练 80 个 epoch（可在 `train.py` 中修改 `epochs` 参数）
+
+**训练日志示例**（train_log.txt）：
+```
+Epoch 1: Train Loss: 4.6058, Acc: 0.0182 | Val Loss: 4.5932, Acc: 0.0241
+Epoch 2: Train Loss: 4.5821, Acc: 0.0298 | Val Loss: 4.5701, Acc: 0.0423
+Epoch 3: Train Loss: 4.5234, Acc: 0.0512 | Val Loss: 4.4923, Acc: 0.0798
+...
+Epoch 80: Train Loss: 0.3421, Acc: 0.8927 | Val Loss: 0.5234, Acc: 0.8234
+```
+
+---
+
+### 3. 测试模型
+
+在测试集上评估模型性能：
+```bash
+python test.py
+```
+
+**输出示例**：
+```
+Test Accuracy: 0.8234
+```
+
+---
+
+### 4. 单张图片预测
+
+对单张图片进行分类预测。创建 `predict.py`：
+```python
+import torch
+from model import ResNeXt
+from utils import predict_single_image, load_model_weights, get_class_names, print_prediction_result
+
+# 配置
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+data_root = "data"
+
+# 加载类别
+classes = get_class_names(data_root)
+
+# 加载模型
+model = ResNeXt(num_classes=len(classes)).to(device)
+model = load_model_weights(model, "model-out/best.pth", device)
+model.eval()
+
+# 预测
+result = predict_single_image("path/to/your/image.jpg", model, device, classes)
+
+# 打印结果
+print_prediction_result(result)
+```
+
+运行预测：
+```bash
+python predict.py
+```
+
+**输出示例**：
+```
+============================================================
+图片路径: test_image.jpg
+预测类别: cat
+置信度: 94.23%
+
+Top5 预测:
+  1. cat: 94.23%
+  2. tiger: 3.45%
+  3. leopard: 1.89%
+  4. lion: 0.32%
+  5. cheetah: 0.11%
+============================================================
+```
+
+---
+
+### 5. 数据集预处理（可选）
+
+如果需要自定义数据处理或增强，可编辑 `mydataset.py` 中的 `train_transform` 和 `val_test_transform`：
+
+```python
+# 训练数据增强
+train_transform = transforms.Compose([
+    transforms.RandomResizedCrop(224, scale=(0.8,1.0)),  # 随机裁剪
+    transforms.RandomHorizontalFlip(),                    # 水平翻转
+    transforms.RandomRotation(10),                        # 随机旋转
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # 颜色抖动
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485,0.456,0.406],
+                         std=[0.229,0.224,0.225])
+])
+```
+
+---
+
+### 6. 超参数调整
+
+在 `train.py` 中修改以下参数进行实验：
+```python
+batch_size = 32       # 批大小（GPU 显存不足可改为 16）
+epochs = 80           # 训练 epoch 数
+lr = 0.01             # 初始学习率
+```
+
+**常见调整**：
+| 参数 | 当前值 | 调整建议 |
+|------|--------|----------|
+| `batch_size` | 32 | 显存充足可改为 64；显存不足改为 16 |
+| `epochs` | 80 | 快速测试改为 10；长期训练改为 150 |
+| `lr` | 0.01 | 收敛缓慢改为 0.02；震荡改为 0.005 |
+| `weight_decay` | 1e-4 | 过拟合改为 5e-4；欠拟合改为 1e-5 |
 
 ---
 
