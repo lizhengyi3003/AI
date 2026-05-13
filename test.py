@@ -22,8 +22,10 @@
 """
 
 import torch
+import argparse
 from model import ResNeXt
 from mydataset import get_dataloaders
+from device_utils import parse_device_arg, setup_device
 
 
 def test():
@@ -63,14 +65,20 @@ def test():
         - 准确率 = 正确预测数 / 总样本数
     """
     
-    # ============ 第一步：设备选择 ============
-    # 检测CUDA GPU是否可用，如果可用则使用GPU加速，否则使用CPU
-    # GPU训练和推理速度通常快10-50倍，但显存有限
-    # CPU通用性强，但速度较慢，适合调试
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"📱 使用设备: {device}")
+    # ============ 第一步：解析命令行参数 ============
+    # 支持 --device 参数指定运行设备
+    parser = argparse.ArgumentParser(description="ResNeXt模型测试")
+    parser.add_argument('--device', type=str, default='auto',
+                       choices=['auto', 'gpu', 'cpu'],
+                       help='选择计算设备: auto=自动检测, gpu=强制GPU, cpu=强制CPU')
+    args = parser.parse_args()
     
-    # ============ 第二步：加载测试数据 ============
+    # ============ 第二步：初始化设备 ============
+    # 根据参数选择并初始化计算设备，显示详细的硬件信息
+    device_name = parse_device_arg(args)
+    device = setup_device(device_name)
+    
+    # ============ 第三步：加载测试数据 ============
     # 调用get_dataloaders函数从'data/test'目录加载测试集
     # 返回值说明：
     #   _: 训练集加载器（测试时不需要，用_忽略）
@@ -82,7 +90,7 @@ def test():
     print(f"📊 类别数: {len(classes)}")
     print(f"📦 测试批次数: {len(test_loader)}")
     
-    # ============ 第三步：模型初始化和权重加载 ============
+    # ============ 第四步：模型初始化和权重加载 ============
     # 创建ResNeXt模型实例，指定类别数为实际数据集的类别数
     # 这确保全连接层的输出维度与类别数相符
     model = ResNeXt(num_classes=len(classes)).to(device)
@@ -94,7 +102,7 @@ def test():
     model.load_state_dict(torch.load("model-out/best.pth", map_location=device))
     print("✓ 成功加载权重: model-out/best.pth")
     
-    # ============ 第四步：设置评估模式 ============
+    # ============ 第五步：设置评估模式 ============
     # model.eval() 将模型设置为评估（推理）模式
     # 这样做的重要作用：
     #   1. 禁用Dropout层：在训练时Dropout随机丢弃神经元以防止过拟合，
@@ -104,7 +112,7 @@ def test():
     model.eval()
     print("✓ 模型已设置为评估模式")
     
-    # ============ 第五步：初始化准确率统计变量 ============
+    # ============ 第六步：初始化准确率统计变量 ============
     # correct: 记录预测正确的样本总数
     # total: 记录评估的总样本数
     # 准确率 = correct / total
@@ -115,7 +123,7 @@ def test():
     print("🧪 开始测试...")
     print("="*50)
     
-    # ============ 第六步：批次循环和预测 ============
+    # ============ 第七步：批次循环和预测 ============
     # torch.no_grad() 上下文管理器：在此块内禁用自动求导
     # 优点：
     #   1. 减少显存占用（不需要保存梯度信息）

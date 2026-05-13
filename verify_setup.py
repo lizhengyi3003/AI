@@ -110,7 +110,18 @@ def check_module(module_name, package_name=None):
         mod = importlib.import_module(module_name)
         # 获取版本号（如果存在 __version__ 属性）
         version = getattr(mod, "__version__", "未知版本")
-        print(f"✅ {package_name:<20} {version}")
+        
+        # 对于PyTorch，显示额外的CUDA信息
+        if module_name == "torch":
+            cuda_available = mod.cuda.is_available()
+            cuda_version = getattr(mod.version, "cuda", None)
+            if cuda_available:
+                gpu_name = mod.cuda.get_device_name(0) if cuda_available else "N/A"
+                print(f"✅ {package_name:<20} {version} (GPU: {gpu_name}, CUDA: {cuda_version})")
+            else:
+                print(f"✅ {package_name:<20} {version} (CPU only)")
+        else:
+            print(f"✅ {package_name:<20} {version}")
         return True
     except ImportError as e:
         # 导入失败，显示错误信息
@@ -422,6 +433,46 @@ def main():
     if not deps_ok:
         print("\n⚠️  部分依赖缺失，请运行以下命令安装:")
         print("   pip install -r requirements.txt")
+    
+    # ============ 检查CUDA兼容性（如果PyTorch已安装）============
+    cuda_ok = True
+    if deps_ok:
+        print("\n🔧 检查CUDA兼容性...")
+        try:
+            from device_config import validate_cuda_match
+            
+            # 检查系统CUDA版本和PyTorch CUDA版本
+            result = validate_cuda_match()
+            
+            if result["pytorch_installed"]:
+                print(f"✅ PyTorch CUDA: {result['pytorch_cuda']}")
+                
+                if result["cuda_detected"]:
+                    print(f"✅ 系统 CUDA: {result['system_cuda']}")
+                    
+                    # 验证匹配
+                    if result["match"]:
+                        print(f"✅ CUDA版本兼容")
+                    else:
+                        print(f"⚠️  {result['warning']}")
+                        print(f"💡 {result['suggestion']}")
+                        cuda_ok = False
+                else:
+                    if result['pytorch_cuda'] == 'CPU':
+                        print(f"✅ PyTorch CPU版本（GPU不可用）")
+                    else:
+                        print(f"ℹ️  未检测到系统CUDA（GPU不可用或nvidia-smi异常）")
+                        cuda_ok = False
+            else:
+                print(f"⚠️  PyTorch未安装或异常")
+                cuda_ok = False
+                
+        except ImportError:
+            print("⚠️  device_config模块不可用，跳过CUDA检查")
+            cuda_ok = False
+        except Exception as e:
+            print(f"⚠️  CUDA检查异常: {e}")
+            cuda_ok = False
 
     # 检查项目文件
     files_ok = check_files()
@@ -439,6 +490,7 @@ def main():
     # 显示各项检查的结果
     # 根据结果显示✅（正常）或❌（有缺失）
     print(f"  依赖包:   {'✅ 正常' if deps_ok else '❌ 有缺失'}")
+    print(f"  CUDA兼容: {'✅ 兼容' if cuda_ok else '⚠️  警告'}")
     print(f"  项目文件: {'✅ 正常' if files_ok else '❌ 有缺失'}")
     print(f"  代码语法: {'✅ 正常' if syntax_ok else '❌ 有错误'}")
     print(f"  模型初始: {'✅ 正常' if model_ok else '❌ 有错误'}")
@@ -446,7 +498,7 @@ def main():
 
     # ============ 第四步：输出建议 ============
     # 根据所有检查结果显示不同的建议信息
-    if all([deps_ok, files_ok, syntax_ok, model_ok]):
+    if all([deps_ok, cuda_ok, files_ok, syntax_ok, model_ok]):
         # 所有检查都通过，可以开始训练
         print("\n✅ 环境检查通过！可以开始训练:")
         print("   python train.py")
@@ -454,6 +506,10 @@ def main():
     else:
         # 存在检查失败，需要用户修复
         print("\n❌ 环境检查未完全通过，请按上述提示修复")
+        if not deps_ok:
+            print("   - 运行: pip install -r requirements.txt")
+        if not cuda_ok:
+            print("   - 运行: python install_pytorch.py")
         return 1
 
 

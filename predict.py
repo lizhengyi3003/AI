@@ -47,6 +47,7 @@
 
 import torch
 import os
+import argparse
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from model import ResNeXt
@@ -56,6 +57,7 @@ from utils import (
     predict_single_image,
     print_prediction_result,
 )
+from device_utils import parse_device_arg, setup_device
 
 
 def predict_single(image_path: str, model: Optional[torch.nn.Module] = None,
@@ -306,7 +308,7 @@ def predict_batch(image_dir: str, output_file: Optional[str] = None) -> List[Dic
     return results
 
 
-def interactive_predict() -> None:
+def interactive_predict(device: Optional[torch.device] = None) -> None:
     """交互式预测模式。
     
     进入交互式命令行界面，用户可以逐个输入图片路径进行预测。
@@ -316,11 +318,15 @@ def interactive_predict() -> None:
         - 'quit': 退出程序
         - 'help': 显示帮助信息
     
+    Args:
+        device (Optional[torch.device]): 计算设备对象。
+            如为None则自动检测（优先GPU）。默认值: None
+    
     Returns:
         None: 交互式程序，直接打印结果到控制台
     
     Example:
-        >>> interactive_predict()
+        >>> interactive_predict(torch.device('cuda'))
         🎯 进入交互预测模式
         输入图片路径 (输入 'help' 获取帮助, 'quit' 退出):
         > test.jpg
@@ -336,7 +342,8 @@ def interactive_predict() -> None:
         - 模型只加载一次，所有预测复用同一实例（高效）
     """
     # ============ 初始化 ============
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"📱 使用设备: {device}\n")
     
     # 预加载模型和类别（避免每次预测都重新加载）
@@ -439,15 +446,18 @@ if __name__ == "__main__":
     这是Python的标准做法，确保模块在被其他脚本导入时不会自动执行。
     
     使用方式：
-        $ python predict.py
+        $ python predict.py                          # 自动检测设备
+        $ python predict.py --device gpu            # 强制GPU
+        $ python predict.py --device cpu            # 强制CPU
         # 进入交互式预测界面
     
     程序流程：
-        1. 自动检测GPU/CPU设备
-        2. 加载训练好的模型权重
-        3. 加载数据集类别信息
-        4. 进入交互式命令行
-        5. 支持单张预测、批量预测、帮助和退出
+        1. 解析命令行参数选择设备
+        2. 自动检测或强制使用GPU/CPU设备
+        3. 加载训练好的模型权重
+        4. 加载数据集类别信息
+        5. 进入交互式命令行
+        6. 支持单张预测、批量预测、帮助和退出
     
     交互模式命令：
         - 输入图片路径：单张预测（相对路径或绝对路径）
@@ -455,4 +465,15 @@ if __name__ == "__main__":
         - help: 显示帮助信息
         - quit: 退出程序
     """
-    interactive_predict()
+    # ============ 解析命令行参数 ============
+    parser = argparse.ArgumentParser(description="ResNeXt模型推理预测")
+    parser.add_argument('--device', type=str, default='auto',
+                       choices=['auto', 'gpu', 'cpu'],
+                       help='选择计算设备: auto=自动检测, gpu=强制GPU, cpu=强制CPU')
+    args = parser.parse_args()
+    
+    # ============ 初始化设备 ============
+    device_name = parse_device_arg(args)
+    device = setup_device(device_name)
+    
+    interactive_predict(device)

@@ -36,8 +36,10 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 import os
+import argparse
 from model import ResNeXt
 from mydataset import get_dataloaders
+from device_utils import parse_device_arg, setup_device
 
 
 def train():
@@ -91,11 +93,18 @@ def train():
         - 余弦退火学习率从高→低，模拟退火加速探索→精细化过程
     """
     
-    # ============ 第一步：设备选择和基本参数配置 ============
-    # 检测CUDA GPU是否可用，优先使用GPU加速训练
-    # GPU能将训练速度提升10-50倍，但显存有限；CPU通用但速度慢
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"📱 使用设备: {device}")
+    # ============ 第一步：解析命令行参数 ============
+    # 支持 --device 参数指定运行设备
+    parser = argparse.ArgumentParser(description="ResNeXt模型训练")
+    parser.add_argument('--device', type=str, default='auto', 
+                       choices=['auto', 'gpu', 'cpu'],
+                       help='选择计算设备: auto=自动检测, gpu=强制GPU, cpu=强制CPU')
+    args = parser.parse_args()
+    
+    # ============ 第二步：初始化设备 ============
+    # 根据参数选择并初始化计算设备，显示详细的硬件信息
+    device_name = parse_device_arg(args)
+    device = setup_device(device_name)
     
     # -------- 训练超参数（Hyperparameters） --------
     # 这些参数控制训练的行为，初学者可以调整以观察效果
@@ -113,7 +122,7 @@ def train():
     print("="*50)
     print(f"📊 配置参数: batch_size={batch_size}, epochs={epochs}, lr={lr}")
     
-    # ============ 第二步：数据加载 ============
+    # ============ 第三步：数据加载 ============
     # 从指定目录加载训练、验证、测试集
     # 该函数自动进行数据增强和标准化处理
     train_loader, val_loader, _, classes = get_dataloaders(data_root, batch_size)
@@ -122,19 +131,19 @@ def train():
     print(f"📚 类别数: {num_classes}")
     print(f"📦 训练批次: {len(train_loader)}, 验证批次: {len(val_loader)}")
     
-    # ============ 第三步：模型初始化 ============
+    # ============ 第四步：模型初始化 ============
     # 创建ResNeXt神经网络，指定输出类别数
     # to(device)将模型参数移动到指定设备（GPU或CPU）
     model = ResNeXt(num_classes=num_classes).to(device)
     print(f"✓ 模型初始化完成（参数数: {sum(p.numel() for p in model.parameters())/1e6:.2f}M）")
     
-    # ============ 第四步：损失函数配置 ============
+    # ============ 第五步：损失函数配置 ============
     # CrossEntropyLoss = Softmax + LogLoss，标准的多分类任务损失函数
     # 作用：测量模型预测的概率分布与真实标签的差异
     # 损失值越小表示预测越准确
     criterion = nn.CrossEntropyLoss()
     
-    # ============ 第五步：优化器配置 ============
+    # ============ 第六步：优化器配置 ============
     # SGD: 随机梯度下降（Stochastic Gradient Descent）
     # model.parameters(): 模型的所有可训练参数（权重和偏置）
     optimizer = optim.SGD(
@@ -145,13 +154,13 @@ def train():
                                       # 公式：loss_new = loss + weight_decay * ||params||^2
     )
     
-    # ============ 第六步：学习率调度器配置 ============
+    # ============ 第七步：学习率调度器配置 ============
     # CosineAnnealingLR: 余弦退火，让学习率按余弦函数规律从高降低
     # 好处：早期学习率高，快速探索最优值；后期学习率低，精细化优化
     # T_max=epochs: 学习率的周期长度（这里等于总epoch数）
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     
-    # ============ 第七步：创建模型和日志保存目录 ============
+    # ============ 第八步：创建模型和日志保存目录 ============
     # 创建目录用于保存训练好的模型权重
     # exist_ok=True: 如果目录已存在则不报错
     os.makedirs("model-out", exist_ok=True)
@@ -160,7 +169,7 @@ def train():
     # 模式"w": 写模式，如果文件存在则覆盖
     log_file = open("train_log.txt", "w")
     
-    # ============ 第八步：初始化最佳准确率跟踪 ============
+    # ============ 第九步：初始化最佳准确率跟踪 ============
     # 用于保存验证集上的最高准确率
     # 当验证准确率超过该值时，保存当前模型为最佳模型
     best_acc = 0.0
@@ -168,7 +177,7 @@ def train():
     print("✓ 所有配置完成，开始训练循环\n")
 
 
-    # ============ 第九步：主训练循环 ============
+    # ============ 第十步：主训练循环 ============
     for epoch in range(1, epochs+1):
         print(f"\n{'='*60}")
         print(f"📍 Epoch {epoch}/{epochs}")
