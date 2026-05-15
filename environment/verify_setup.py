@@ -177,22 +177,55 @@ def check_files():
     
     # ============ 第一步：检查核心脚本文件 ============
     # 定义必要的Python脚本及其描述
+    # 格式：相对路径 -> 描述
     required_files = {
-        "model.py": "模型定义",
-        "mydataset.py": "数据加载",
+        "model.py": "ResNeXt模型定义",
+        "mydataset.py": "数据加载与增强",
         "train.py": "训练脚本",
         "test.py": "测试脚本",
-        "utils.py": "工具函数",
-        "predict.py": "推理预测",
+        "utils/utils.py": "推理工具函数",
+        "utils/predict.py": "推理预测脚本",
+        "environment/device_config.py": "设备检测模块",
+        "environment/device_utils.py": "设备初始化模块",
+        "environment/install_pytorch.py": "PyTorch安装脚本",
+        "environment/verify_setup.py": "环境验证工具",
+        "requirements.txt": "依赖包配置",
+        "README.md": "项目文档",
     }
     
     all_files_ok = True
     
-    for filename, description in required_files.items():
-        if os.path.exists(filename):
-            print(f"✅ {filename:<20} {description}")
+    print("\n  核心模块:")
+    for filepath in ["model.py", "mydataset.py", "train.py", "test.py"]:
+        if os.path.exists(filepath):
+            print(f"  ✅ {filepath:<25} {required_files[filepath]}")
         else:
-            print(f"❌ {filename:<20} {description} - 文件缺失！")
+            print(f"  ❌ {filepath:<25} {required_files[filepath]} - 文件缺失！")
+            all_files_ok = False
+    
+    print("\n  工具模块:")
+    for filepath in ["utils/utils.py", "utils/predict.py"]:
+        if os.path.exists(filepath):
+            print(f"  ✅ {filepath:<25} {required_files[filepath]}")
+        else:
+            print(f"  ❌ {filepath:<25} {required_files[filepath]} - 文件缺失！")
+            all_files_ok = False
+    
+    print("\n  环境工具:")
+    for filepath in ["environment/device_config.py", "environment/device_utils.py",
+                     "environment/install_pytorch.py", "environment/verify_setup.py"]:
+        if os.path.exists(filepath):
+            print(f"  ✅ {filepath:<40} {required_files[filepath]}")
+        else:
+            print(f"  ❌ {filepath:<40} {required_files[filepath]} - 文件缺失！")
+            all_files_ok = False
+    
+    print("\n  配置文件:")
+    for filepath in ["requirements.txt", "README.md"]:
+        if os.path.exists(filepath):
+            print(f"  ✅ {filepath:<25} {required_files[filepath]}")
+        else:
+            print(f"  ❌ {filepath:<25} {required_files[filepath]} - 文件缺失！")
             all_files_ok = False
     
     # ============ 第二步：检查数据集目录 ============
@@ -206,22 +239,39 @@ def check_files():
 
     for dir_path, description in data_dirs.items():
         if os.path.exists(dir_path):
-            # 统计子目录数（类别数）和图片数
-            class_dirs = [d for d in os.listdir(dir_path)
-                          if os.path.isdir(os.path.join(dir_path, d))]
-            num_classes = len(class_dirs)
-
-            # 递归统计图片数量
-            num_images = 0
-            for class_dir in class_dirs:
-                class_path = os.path.join(dir_path, class_dir)
-                num_images += len([f for f in os.listdir(class_path)
-                                   if os.path.isfile(os.path.join(class_path, f))])
-
-            print(f"✅ {dir_path:<20} ({num_classes} 类, {num_images} 张)")
+            try:
+                class_dirs = [d for d in os.listdir(dir_path)
+                              if os.path.isdir(os.path.join(dir_path, d))]
+                num_classes = len(class_dirs)
+                num_images = 0
+                for class_dir in class_dirs:
+                    class_path = os.path.join(dir_path, class_dir)
+                    if os.path.isdir(class_path):
+                        num_images += len([f for f in os.listdir(class_path)
+                                           if os.path.isfile(os.path.join(class_path, f))])
+                print(f"  ✅ {dir_path:<20} ({num_classes:3d} 类, {num_images:5d} 张)")
+            except Exception as e:
+                print(f"  ⚠️  {dir_path:<20} 读取失败: {e}")
+                all_files_ok = False
         else:
-            print(f"❌ {dir_path:<20} {description} - 目录缺失！")
+            print(f"  ❌ {dir_path:<20} {description} - 目录缺失！")
             all_files_ok = False
+    
+    # ============ 第三步：检查其他必要目录 ============
+    print("\n📂 检查必要的目录结构...")
+    
+    required_dirs = {
+        "utils": "工具函数目录",
+        "environment": "环境配置目录",
+        "log": "训练日志目录",
+        "model-out": "模型输出目录",
+    }
+    
+    for dir_name, description in required_dirs.items():
+        if os.path.exists(dir_name):
+            print(f"  ✅ {dir_name:<20} {description}")
+        else:
+            print(f"  ⚠️  {dir_name:<20} {description} (首次运行会自动创建)")
 
     return all_files_ok
 
@@ -275,8 +325,12 @@ def check_code_syntax():
         "mydataset.py",
         "train.py",
         "test.py",
-        "utils.py",
-        "predict.py",
+        "utils/utils.py",
+        "utils/predict.py",
+        "environment/device_config.py",
+        "environment/device_utils.py",
+        "environment/install_pytorch.py",
+        "environment/verify_setup.py",
     ]
 
     all_ok = True
@@ -284,7 +338,7 @@ def check_code_syntax():
     for filename in files_to_check:
         # 检查文件是否存在
         if not os.path.exists(filename):
-            print(f"⚠️  {filename:<20} 文件不存在，跳过检查")
+            print(f"⚠️  {filename:<25} 文件不存在，跳过检查")
             all_ok = False
             continue
 
@@ -292,10 +346,10 @@ def check_code_syntax():
             # 使用py_compile编译检查语法
             # doraise=True: 编译错误时抛出异常
             py_compile.compile(filename, doraise=True)
-            print(f"✅ {filename:<20} 正常")
+            print(f"✅ {filename:<25} 正常")
         except py_compile.PyCompileError as e:
             # 编译错误：显示具体错误信息
-            print(f"❌ {filename:<20} 语法错误: {e}")
+            print(f"❌ {filename:<25} 语法错误: {e}")
             all_ok = False
 
     return all_ok
@@ -421,16 +475,23 @@ def main():
 
     # 检查Python依赖包
     print("\n📦 检查必需的 Python 包...")
+    print("\n  核心依赖:")
     deps_ok = all([
         check_module("torch", "PyTorch"),
         check_module("torchvision", "torchvision"),
+    ])
+    
+    print("\n  工具依赖:")
+    tool_deps_ok = all([
         check_module("tqdm", "tqdm"),
-        check_module("numpy", "NumPy"),
         check_module("PIL", "Pillow"),
     ])
+    
+    print("\n  可选依赖:")
+    check_module("numpy", "NumPy")
 
     # 如果依赖包不完整，给出安装建议
-    if not deps_ok:
+    if not (deps_ok and tool_deps_ok):
         print("\n⚠️  部分依赖缺失，请运行以下命令安装:")
         print("   pip install -r requirements.txt")
     
@@ -439,7 +500,7 @@ def main():
     if deps_ok:
         print("\n🔧 检查CUDA兼容性...")
         try:
-            from device_config import validate_cuda_match
+            from environment.device_config import validate_cuda_match
             
             # 检查系统CUDA版本和PyTorch CUDA版本
             result = validate_cuda_match()
@@ -486,30 +547,67 @@ def main():
     # ============ 第三步：生成汇总报告 ============
     print("\n" + "=" * 60)
     print("验证总结:")
+    print("-" * 60)
 
     # 显示各项检查的结果
     # 根据结果显示✅（正常）或❌（有缺失）
-    print(f"  依赖包:   {'✅ 正常' if deps_ok else '❌ 有缺失'}")
-    print(f"  CUDA兼容: {'✅ 兼容' if cuda_ok else '⚠️  警告'}")
-    print(f"  项目文件: {'✅ 正常' if files_ok else '❌ 有缺失'}")
-    print(f"  代码语法: {'✅ 正常' if syntax_ok else '❌ 有错误'}")
-    print(f"  模型初始: {'✅ 正常' if model_ok else '❌ 有错误'}")
-    print("=" * 60)
+    print(f"  核心依赖:   {'✅ 正常' if deps_ok else '❌ 有缺失'}")
+    print(f"  工具依赖:   {'✅ 正常' if tool_deps_ok else '⚠️  警告'}")
+    print(f"  CUDA兼容:   {'✅ 兼容' if cuda_ok else '⚠️  警告'}")
+    print(f"  项目文件:   {'✅ 正常' if files_ok else '❌ 有缺失'}")
+    print(f"  代码语法:   {'✅ 正常' if syntax_ok else '❌ 有错误'}")
+    print(f"  模型初始:   {'✅ 正常' if model_ok else '❌ 有错误'}")
+    print("-" * 60)
 
     # ============ 第四步：输出建议 ============
     # 根据所有检查结果显示不同的建议信息
-    if all([deps_ok, cuda_ok, files_ok, syntax_ok, model_ok]):
-        # 所有检查都通过，可以开始训练
-        print("\n✅ 环境检查通过！可以开始训练:")
-        print("   python train.py")
+    print("\n")
+    
+    all_critical_ok = deps_ok and files_ok and syntax_ok and model_ok
+    
+    if all_critical_ok:
+        # 所有关键检查都通过，可以开始训练
+        print("✅ 环境检查通过！可以开始以下工作：")
+        print("=" * 60)
+        print("\n  【训练】")
+        print("    python train.py --device auto")
+        print("\n  【测试】")
+        print("    python test.py --device auto")
+        print("\n  【推理预测】")
+        print("    python utils/predict.py --device auto")
+        print("\n  【环境验证】")
+        print("    python environment/verify_setup.py")
+        print("\n" + "=" * 60)
         return 0
     else:
         # 存在检查失败，需要用户修复
-        print("\n❌ 环境检查未完全通过，请按上述提示修复")
+        print("❌ 环境检查未完全通过，请按以下步骤修复：")
+        print("=" * 60)
+        
         if not deps_ok:
-            print("   - 运行: pip install -r requirements.txt")
-        if not cuda_ok:
-            print("   - 运行: python install_pytorch.py")
+            print("\n  【第一步】安装核心依赖")
+            print("    pip install -r requirements.txt")
+        
+        if not (deps_ok and tool_deps_ok):
+            print("\n  【第二步】安装所有依赖")
+            print("    pip install torch torchvision tqdm pillow numpy")
+        
+        if not files_ok:
+            print("\n  【第三步】检查项目文件")
+            print("    - 确保所有文件都存在")
+            print("    - 检查data/目录结构")
+        
+        if not syntax_ok:
+            print("\n  【第四步】修复语法错误")
+            print("    - 查看上方错误信息")
+            print("    - 修复相应Python文件的语法")
+        
+        if not model_ok:
+            print("\n  【第五步】检查模型初始化")
+            print("    - 确保model.py能正常导入")
+            print("    - 检查ResNeXt类定义")
+        
+        print("\n" + "=" * 60)
         return 1
 
 

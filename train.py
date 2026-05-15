@@ -39,7 +39,7 @@ import os
 import argparse
 from model import ResNeXt
 from mydataset import get_dataloaders
-from device_utils import parse_device_arg, setup_device
+from environment.device_utils import parse_device_arg, setup_device
 
 
 def train():
@@ -161,13 +161,15 @@ def train():
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     
     # ============ 第八步：创建模型和日志保存目录 ============
-    # 创建目录用于保存训练好的模型权重
+    # 创建目录用于保存训练好的模型权重和训练日志
     # exist_ok=True: 如果目录已存在则不报错
     os.makedirs("model-out", exist_ok=True)
+    os.makedirs("log", exist_ok=True)
     
     # 打开文件用于记录每个epoch的训练日志
     # 模式"w": 写模式，如果文件存在则覆盖
-    log_file = open("train_log.txt", "w")
+    log_path = os.path.join("log", "train_log.txt")
+    log_file = open(log_path, "w")
     
     # ============ 第九步：初始化最佳准确率跟踪 ============
     # 用于保存验证集上的最高准确率

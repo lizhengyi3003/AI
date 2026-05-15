@@ -1,5 +1,3 @@
-# 基础项目一：基于轻量化 ResNeXt 的图像分类
-
 ## 项目简介
 本项目手动实现了一个轻量化 ResNeXt 网络，在给定的 101 类图像数据集上完成图像分类全流程。  
 通过本项目，深入理解了 ResNeXt 的核心设计思想、分组卷积与基数的概念，并与 ResNet 进行了结构对比分析。
@@ -7,16 +5,46 @@
 ---
 
 ## 环境配置
+
+### 系统要求
 - Python 3.8+
 - PyTorch 1.10+
-- torchvision
-- tqdm
-- matplotlib
+- NVIDIA CUDA 工具包（GPU加速，可选）
 
-快速安装：
+### 依赖包
+- pytorch - 深度学习框架
+- torchvision - 计算机视觉库
+- tqdm - 进度条显示
+- Pillow - 图像处理
+- matplotlib - 绘图（可选）
+
+### 快速安装
+
+#### ① CPU 版本（通用，推荐初次测试）
 ```bash
-pip install torch torchvision tqdm matplotlib
+pip install -r requirements.txt
 ```
+
+#### ② GPU 版本（需要 NVIDIA 显卡）
+**方案 A - 自动安装（推荐）**
+```bash
+python install_pytorch.py
+```
+交互式选择设备，自动匹配CUDA版本并安装。
+
+**方案 B - 手动指定 CUDA 版本**
+```bash
+# 查看系统CUDA版本：nvidia-smi
+# 然后选择对应版本安装：
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# 将 cu118 替换为你的版本：cu118/cu121/cu124
+```
+
+### 环境验证
+```bash
+python environment/verify_setup.py
+```
+验证依赖包、项目文件、代码语法、模型初始化等。
 
 ---
 
@@ -32,19 +60,85 @@ AI/
 │   │   └── ...
 │   └── test/               # 测试集（1 份数据）
 │       └── ...
+├── environment/            # 环境配置和验证工具
+│   ├── device_config.py    # 设备检测（CUDA版本等）
+│   ├── device_utils.py     # 设备初始化和硬件信息
+│   ├── install_pytorch.py  # PyTorch一键安装脚本
+│   └── verify_setup.py     # 环境和项目验证工具
+├── utils/                  # 工具函数模块
+│   ├── utils.py            # 推理工具函数
+│   └── predict.py          # 推理预测脚本
+├── log/                    # 训练日志目录
+│   └── train_log.txt       # 每个epoch的loss和acc记录
+├── model-out/              # 保存的模型权重
+│   ├── best.pth            # 最佳验证准确率对应的权重
+│   └── last.pth            # 最后一个epoch的权重
 ├── model.py                # ResNeXt 模型定义（手动实现）
 ├── mydataset.py            # 数据加载与增强
 ├── train.py                # 训练与验证脚本
 ├── test.py                 # 测试脚本
-├── utils.py                # 辅助工具函数（单图预测、权重加载等）
-├── predict.py              # 推理预测脚本（单张、批量、交互式）
-├── verify_setup.py         # 环境和项目验证工具
-├── model-out/              # 保存的模型权重
-│   ├── best.pth            # 最佳验证准确率对应的权重
-│   └── last.pth            # 最后一个 epoch 的权重
-├── train_log.txt           # 训练日志（每个 epoch 的 loss 和 acc）
 ├── requirements.txt        # 项目依赖包列表
+├── AI.code-workspace       # VS Code 工作区配置
 └── README.md               # 本说明文档
+```
+
+---
+
+## 命令行参数速查表
+
+### train.py - 训练脚本
+```bash
+python train.py [--device {auto|gpu|cpu}]
+```
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--device` | 计算设备选择 | auto |
+
+**选项说明**：
+- `auto` - 自动检测（优先GPU，无GPU则用CPU）
+- `gpu` - 强制使用GPU（无GPU时报错）
+- `cpu` - 强制使用CPU
+
+**示例**：
+```bash
+python train.py --device auto     # 自动检测
+python train.py --device gpu      # 强制GPU训练
+python train.py --device cpu      # CPU训练
+```
+
+### test.py - 测试脚本
+```bash
+python test.py [--device {auto|gpu|cpu}]
+```
+
+**选项说明**：同 train.py
+
+**示例**：
+```bash
+python test.py --device auto
+python test.py --device gpu
+```
+
+### utils/predict.py - 推理预测脚本
+```bash
+python utils/predict.py [--device {auto|gpu|cpu}]
+```
+
+**推理模式**（运行后交互输入）：
+- 单张图片：输入图片路径 `path/to/image.jpg`
+- 批量预测：输入 `batch path/to/directory/`
+- 获取帮助：输入 `help`
+- 退出程序：输入 `quit`
+
+**示例**：
+```bash
+python utils/predict.py --device auto
+# 进入交互模式，输入图片路径
+> /data/test/cat.jpg
+预测: cat, 置信度: 94.23%
+
+> batch ./test_images/
+✅ 成功预测: 5 张图片
 ```
 
 ---
@@ -82,8 +176,6 @@ ResNeXt 使用**分组卷积** (Grouped Convolution) 来等价实现多分支聚
 | 并行路径 | 无（单一路径） | 有（C 条并行路径，由分组卷积实现） |
 | 参数效率 | 较低 | 更高（同样参数/FLOPs 下精度更高） |
 
-**结构图示**（可在此处插入论文中 Fig. 1 的左右对比图，或自己绘制的分组卷积等效图）
-
 ### ③ 分组卷积代码实现的关键点
 
 在 `model.py` 的 `ResNeXtBlock` 中，关键代码如下：
@@ -107,21 +199,6 @@ self.conv3 = nn.Conv2d(mid_ch, out_ch, 1, bias=False)
 - `groups=cardinality` 必须等于基数（本项目为 8）。
 - `mid_ch` 必须能被 `cardinality` 整除，否则会报错（本项目 `cardinality * base_width` 自然整除）。
 - 输入通道 `in_ch` 和输出通道 `out_ch` 的变化仅由 bottleneck 的第一层和第三层控制，与分组卷积的组数无关。
-
-### ④ 训练过程中遇到的问题及解决方法
-
-> **请在此记录你实际遇到的问题和解决方法，如实填写即可，例如：**
-
-- **问题 1**：训练初期 loss 下降缓慢，验证准确率低。  
-  **解决**：调整学习率从 0.01 到 0.005，并加入余弦退火调度，训练变得更加稳定。
-
-- **问题 2**：显存不足（OOM），无法使用 batch size 32。  
-  **解决**：将 batch size 减小到 16，并开启梯度累积（每 2 步更新一次参数），等效维持了原始 batch size 的效果。
-
-- **问题 3**：训练后期出现过拟合（训练准确率高，验证准确率停滞或下降）。  
-  **解决**：增加数据增强（RandomRotation、ColorJitter），调整 weight_decay 至 5e-4，并在全连接层前加入 Dropout(0.5)。
-
----
 
 ## 训练配置
 | 配置项 | 参数值 |
@@ -160,57 +237,6 @@ Epoch 80: Train Loss: 0.3421, Acc: 0.8927 | Val Loss: 0.5234, Acc: 0.8234
 - **最佳验证集准确率**：通常在 75%-90% 之间（取决于数据和硬件）
 - **测试集准确率**：通常比验证集准确率略低 2-5%
 - **训练时间**：约 4-8 小时（单卡 GPU）或 20-30 小时（CPU）
-
-### 如何绘制训练曲线
-
-可以使用以下代码绘制训练曲线：
-
-```python
-import matplotlib.pyplot as plt
-import re
-
-# 读取训练日志
-with open('train_log.txt', 'r') as f:
-    lines = f.readlines()
-
-train_loss, train_acc, val_loss, val_acc = [], [], [], []
-
-# 解析日志
-for line in lines:
-    match = re.search(r'Train Loss: ([\d.]+), Acc: ([\d.]+) \| Val Loss: ([\d.]+), Acc: ([\d.]+)', line)
-    if match:
-        train_loss.append(float(match.group(1)))
-        train_acc.append(float(match.group(2)))
-        val_loss.append(float(match.group(3)))
-        val_acc.append(float(match.group(4)))
-
-# 绘制图表
-fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-
-# 损失曲线
-axes[0].plot(train_loss, label='Train Loss')
-axes[0].plot(val_loss, label='Val Loss')
-axes[0].set_xlabel('Epoch')
-axes[0].set_ylabel('Loss')
-axes[0].set_title('Training & Validation Loss')
-axes[0].legend()
-axes[0].grid()
-
-# 准确率曲线
-axes[1].plot(train_acc, label='Train Acc')
-axes[1].plot(val_acc, label='Val Acc')
-axes[1].set_xlabel('Epoch')
-axes[1].set_ylabel('Accuracy')
-axes[1].set_title('Training & Validation Accuracy')
-axes[1].legend()
-axes[1].grid()
-
-plt.tight_layout()
-plt.savefig('curves.png', dpi=150)
-plt.show()
-```
-
----
 
 ## 常见问题与解决方案
 
@@ -297,6 +323,68 @@ python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_
 
 ---
 
+## environment/ 文件夹说明
+
+本项目包含完整的设备配置和环境管理工具，自动处理GPU/CPU选择和PyTorch版本匹配。
+
+### device_config.py - 设备检测模块
+检测系统硬件配置和PyTorch安装状态。
+
+**核心函数**：
+- `detect_cuda_version()` - 检测系统CUDA版本
+- `get_pytorch_cuda_version()` - 获取PyTorch CUDA版本
+- `check_pytorch_installed()` - 检查PyTorch安装状态
+- `validate_cuda_match()` - 验证版本匹配
+
+**使用场景**：诊断GPU配置问题
+
+### device_utils.py - 设备初始化模块
+自动初始化计算设备，显示详细的硬件信息。
+
+**核心函数**：
+- `parse_device_arg()` - 解析命令行参数
+- `setup_device()` - 初始化设备并显示硬件信息
+
+**集成方式**：所有训练/测试脚本都通过此模块自动处理设备选择。
+
+### install_pytorch.py - PyTorch安装脚本
+一键安装对应版本的PyTorch。
+
+**特点**：
+- ✅ 自动检测系统CUDA版本
+- ✅ 交互式设备选择
+- ✅ 自动匹配版本安装
+- ✅ 完整的安装验证
+
+**使用**：
+```bash
+python environment/install_pytorch.py
+# 或指定设备
+python environment/install_pytorch.py --device gpu
+```
+
+### verify_setup.py - 环境验证工具
+全面检查项目环境和配置。
+
+**检查项**：
+- ✅ Python依赖包（PyTorch、torchvision等）
+- ✅ 项目文件完整性
+- ✅ 数据集目录结构
+- ✅ Python代码语法
+- ✅ 模型初始化
+
+**使用时机**：
+- 项目初次设置后
+- 修改依赖后
+- 环境出现问题时
+
+**使用**：
+```bash
+python environment/verify_setup.py
+```
+
+---
+
 ## 使用说明
 
 ### 1. 环境准备
@@ -308,16 +396,30 @@ pip install -r requirements.txt
 
 **验证环境**：
 ```bash
-python -c "import torch; print(f'PyTorch {torch.__version__}'); print(f'CUDA Available: {torch.cuda.is_available()}')"
+python environment/verify_setup.py
 ```
+
+详细的硬件信息将自动输出。
 
 ---
 
 ### 2. 训练模型
 
-执行以下命令开始训练：
+#### 标准训练（自动GPU检测）
 ```bash
 python train.py
+```
+
+#### 指定设备训练
+```bash
+# GPU训练
+python train.py --device gpu
+
+# CPU训练
+python train.py --device cpu
+
+# 自动检测（默认）
+python train.py --device auto
 ```
 
 **训练过程说明**：
@@ -354,13 +456,13 @@ Test Accuracy: 0.8234
 
 ### 4. 模型推理与预测
 
-**predict.py** 提供了三种预测模式：单张预测、批量预测和交互式预测。
+**utils/predict.py** 提供了三种推理模式：单张预测、批量预测和交互式预测。
 
 #### 交互式预测模式（推荐）
 
 进入交互模式，逐个输入图片进行预测：
 ```bash
-python predict.py
+python utils/predict.py
 ```
 
 **交互命令说明**：
@@ -382,7 +484,7 @@ python predict.py
 ```python
 import torch
 from model import ResNeXt
-from utils import predict_single_image, load_model_weights, get_class_names, print_prediction_result
+from utils.utils import predict_single_image, load_model_weights, get_class_names, print_prediction_result
 
 # 配置
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -422,7 +524,7 @@ Top5 预测:
 #### 批量预测代码使用
 
 ```python
-from predict import predict_batch
+from utils.predict import predict_batch
 
 # 批量预测指定目录下的所有图片
 results = predict_batch("./test_images/", output_file="predictions.txt")
@@ -441,7 +543,7 @@ for result in results:
 
 #### 模型推理的工具函数
 
-**utils.py** 提供了以下工具函数：
+**utils/utils.py** 提供了以下工具函数：
 - `load_model_weights()`: 加载模型权重
 - `get_class_names()`: 获取类别名列表
 - `predict_single_image()`: 对单张图片进行推理

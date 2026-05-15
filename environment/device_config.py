@@ -43,7 +43,7 @@ import subprocess
 import sys
 import os
 import re
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, Tuple, Any
 
 
 def detect_cuda_version() -> Optional[str]:

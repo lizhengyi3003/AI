@@ -25,7 +25,7 @@ import torch
 import argparse
 from model import ResNeXt
 from mydataset import get_dataloaders
-from device_utils import parse_device_arg, setup_device
+from environment.device_utils import parse_device_arg, setup_device
 
 
 def test():

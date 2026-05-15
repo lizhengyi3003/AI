@@ -61,7 +61,7 @@
 import sys
 import platform
 import argparse
-from device_config import (
+from environment.device_config import (
     detect_cuda_version,
     check_pytorch_installed,
     get_device_choice,

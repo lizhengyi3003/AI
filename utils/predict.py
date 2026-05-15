@@ -51,13 +51,13 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from model import ResNeXt
-from utils import (
+from utils.utils import (
     load_model_weights,
     get_class_names,
     predict_single_image,
     print_prediction_result,
 )
-from device_utils import parse_device_arg, setup_device
+from environment.device_utils import parse_device_arg, setup_device
 
 
 def predict_single(image_path: str, model: Optional[torch.nn.Module] = None,

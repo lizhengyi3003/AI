@@ -24,7 +24,6 @@
 
 import torch
 import argparse
-from typing import Literal
 
 
 def parse_device_arg(args: argparse.Namespace) -> str:
