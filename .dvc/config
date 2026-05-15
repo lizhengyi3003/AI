@@ -1,2 +1,8 @@
 [core]
     autostage = true
+    remote = r2-storage
+['remote "r2-storage"']
+    url = s3://ai-project/ACU/01
+    access_key_id = 17821da199690a4e8ea02bce05dbb27d
+    secret_access_key = f7039125774cb96f754f7af09342f32c24a54dbd53fb1cf7215e970610b963b5
+    endpointurl = https://d08d42f9b1e53cc1648cdc9c1eab5a0e.r2.cloudflarestorage.com

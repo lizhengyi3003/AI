@@ -219,3 +219,4 @@ __marimo__/
 
 # 训练库数据排除
 /data
+/model-out
