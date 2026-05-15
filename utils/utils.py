@@ -8,9 +8,9 @@
     5. 类别索引映射
 
 工具函数主要用于：
-    - predict.py: 推理预测脚本调用
+    - utils/predict.py: 推理预测脚本调用
     - test.py: 批量评估数据集
-    - 用户自定义脚本: 集成模型推-理功能
+    - 用户自定义脚本: 集成模型推理功能
 
 模块功能列表：
     - load_model_weights(): 加载保存的模型权重文件
@@ -20,7 +20,7 @@
     - get_class_index_map(): 建立类别名与索引的映射
 
 使用方法：
-    from utils import predict_single_image, load_model_weights, get_class_names
+    from utils.utils import predict_single_image, load_model_weights, get_class_names
     
     # 加载模型和类别
     model = load_model_weights(model, "model-out/best.pth", device)
@@ -84,7 +84,7 @@ def load_model_weights(model: nn.Module, weight_path: str, device: torch.device)
     使用示例（Example）:
         >>> import torch
         >>> from model import ResNeXt
-        >>> from utils import load_model_weights
+        >>> from utils.utils import load_model_weights
         >>> 
         >>> # 设定设备
         >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -150,7 +150,7 @@ def get_class_names(data_root: str) -> List[str]:
             通常是由于数据集路径错误或目录结构不符合要求。
     
     使用示例（Example）:
-        >>> from utils import get_class_names
+        >>> from utils.utils import get_class_names
         >>> 
         >>> # 获取数据集类别
         >>> classes = get_class_names("data")
@@ -264,7 +264,7 @@ def predict_single_image(
     使用示例（Example）:
         >>> import torch
         >>> from model import ResNeXt
-        >>> from utils import predict_single_image, load_model_weights, get_class_names
+        >>> from utils.utils import predict_single_image, load_model_weights, get_class_names
         >>> 
         >>> # 初始化
         >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -407,7 +407,7 @@ def print_prediction_result(result: Dict[str, Any]) -> None:
         None: 函数直接打印到控制台，无返回值
     
     使用示例（Example）:
-        >>> from utils import predict_single_image, print_prediction_result
+        >>> from utils.utils import predict_single_image, print_prediction_result
         >>> 
         >>> result = predict_single_image("test.jpg", model, device, classes)
         >>> print_prediction_result(result)
@@ -481,7 +481,7 @@ def get_class_index_map(data_root: str) -> Dict[str, int]:
         FileNotFoundError: 如果data_root/train目录不存在（由get_class_names抛出）
     
     使用示例（Example）:
-        >>> from utils import get_class_index_map
+        >>> from utils.utils import get_class_index_map
         >>> 
         >>> # 获取映射
         >>> class_map = get_class_index_map("data")
@@ -522,7 +522,7 @@ if __name__ == "__main__":
     这是Python的标准做法，确保模块在被其他脚本导入时不会自动执行。
     
     使用方式：
-        $ python utils.py
+        $ python utils/utils.py
     
     测试内容：
         1. 加载并显示数据集类别

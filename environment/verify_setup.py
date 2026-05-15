@@ -28,7 +28,7 @@
     - main(): 运行完整检查并输出报告
 
 使用方法：
-    $ python verify_setup.py
+    $ python environment/verify_setup.py
     # 输出详细的环境检查报告
     # 成功返回0，失败返回1
 
@@ -66,6 +66,21 @@
 import sys
 import importlib
 import os
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 问题：当直接运行 python environment/verify_setup.py 时，Python 会将 environment/ 加入 sys.path[0]
+# 解决：优先加入项目根目录，并移除/调整 environment/ 目录优先级
+_current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（environment/）
+_project_root = os.path.dirname(_current_dir)  # 项目根目录
+
+# 移除 sys.path 中的 environment/ 目录（Python 自动添加）
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+
+# 确保项目根目录在最前面
+if _project_root in sys.path:
+    sys.path.remove(_project_root)
+sys.path.insert(0, _project_root)
 
 
 def check_module(module_name, package_name=None):
@@ -457,7 +472,7 @@ def main():
         7. 建议和后续步骤
 
     使用示例（Example）:
-        >>> python verify_setup.py
+        >>> python environment/verify_setup.py
         # 运行完整检查
         # 返回exit code 0（成功）或1（失败）
 
@@ -619,7 +634,7 @@ if __name__ == "__main__":
     这是Python的标准做法，确保模块在被其他脚本导入时不会自动执行。
 
     使用方式：
-        $ python verify_setup.py
+        $ python environment/verify_setup.py
 
     程序流程：
         1. 运行main()函数执行所有检查

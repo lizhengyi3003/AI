@@ -52,7 +52,7 @@
     ✅ GPU 支持: 是
     
     🎉 安装成功！后续步骤:
-      1. 验证环境: python verify_setup.py
+      1. 验证环境: python environment/verify_setup.py
       2. 开始训练: python train.py
       3. 测试模型: python test.py
 
@@ -174,7 +174,7 @@ def main():
         choice = input("\n是否重新安装? (y/N): ").lower().strip()
         if choice not in ('y', 'yes'):
             print("\n💡 后续步骤:")
-            print("  1. 验证环境: python verify_setup.py")
+            print("  1. 验证环境: python environment/verify_setup.py")
             print("  2. 开始训练: python train.py")
             print("  3. 测试模型: python test.py")
             return
@@ -209,10 +209,10 @@ def main():
         print("🎉 安装成功!")
         print("="*60)
         print("\n📚 后续步骤:")
-        print("  1. 验证完整环境: python verify_setup.py")
+        print("  1. 验证完整环境: python environment/verify_setup.py")
         print("  2. 开始训练模型: python train.py")
         print("  3. 测试模型性能: python test.py")
-        print("  4. 图片推理预测: python predict.py")
+        print("  4. 图片推理预测: python utils/predict.py")
         print()
     else:
         print("❌ 安装失败")

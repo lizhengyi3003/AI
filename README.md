@@ -551,7 +551,7 @@ for result in results:
 - `get_class_index_map()`: 获取类别名到索引的映射
 
 ```python
-from utils import (
+from utils.utils import (
     load_model_weights,
     get_class_names,
     predict_single_image,

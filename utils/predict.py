@@ -19,11 +19,11 @@
     - interactive_predict(): 交互式预测单张图片
 
 使用方法：
-    $ python predict.py
+    $ python utils/predict.py
     # 进入交互模式，输入图片路径进行预测
     
     或者通过代码调用：
-    from predict import predict_single
+    from utils.predict import predict_single
     result = predict_single("test_image.jpg")
     print(f"预测: {result['pred_class']}, 置信度: {result['confidence']:.2%}")
 
@@ -48,8 +48,25 @@
 import torch
 import os
 import argparse
+import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 问题：当直接运行 python utils/predict.py 时，Python 会将 utils/ 加入 sys.path[0]
+# 解决：优先加入项目根目录，并移除/调整 utils/ 目录优先级
+_current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（utils/）
+_project_root = os.path.dirname(_current_dir)  # 项目根目录
+
+# 移除 sys.path 中的 utils/ 目录（Python 自动添加）
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+
+# 确保项目根目录在最前面
+if _project_root in sys.path:
+    sys.path.remove(_project_root)
+sys.path.insert(0, _project_root)
+
 from model import ResNeXt
 from utils.utils import (
     load_model_weights,
@@ -446,9 +463,9 @@ if __name__ == "__main__":
     这是Python的标准做法，确保模块在被其他脚本导入时不会自动执行。
     
     使用方式：
-        $ python predict.py                          # 自动检测设备
-        $ python predict.py --device gpu            # 强制GPU
-        $ python predict.py --device cpu            # 强制CPU
+        $ python utils/predict.py                          # 自动检测设备
+        $ python utils/predict.py --device gpu            # 强制GPU
+        $ python utils/predict.py --device cpu            # 强制CPU
         # 进入交互式预测界面
     
     程序流程：
