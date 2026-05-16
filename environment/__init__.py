@@ -5,8 +5,4 @@
     - device_utils.py: 设备初始化和设置
     - install_pytorch.py: PyTorch 一键安装脚本
     - verify_setup.py: 环境和项目完整性验证脚本
-
-使用示例：
-    from environment.device_utils import setup_device, parse_device_arg
-    from environment.verify_setup import check_files, check_module
 """

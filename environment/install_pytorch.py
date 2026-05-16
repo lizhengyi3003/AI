@@ -6,61 +6,28 @@
     3. 交互式设备选择
     4. 自动下载安装对应版本PyTorch
     5. 安装验证
-
-使用方法：
-    在项目根目录运行：
-    $ python install_pytorch.py
-    
-    或指定设备：
-    $ python install_pytorch.py --device gpu
-    $ python install_pytorch.py --device cpu
-    $ python install_pytorch.py --device auto
-
-交互式流程示例：
-    $ python install_pytorch.py
-    
-    ============================================================
-    PyTorch 安装助手
-    ============================================================
-    
-    系统信息:
-      OS: Windows 11
-      CUDA: 12.1 检测到
-    
-    PyTorch 状态: 未安装
-    
-    ============================================================
-    设备选择
-    ============================================================
-    
-    ✅ 检测到 NVIDIA CUDA: 12.1
-    📱 可用设备:
-      1. GPU (CUDA 12.1) - 推荐，速度快
-      2. CPU - 通用但较慢
-    
-    请选择 (1=GPU, 2=CPU，默认=GPU): 1
-    
-    ============================================================
-    准备安装...
-    ============================================================
-    
-    📍 安装 PyTorch GPU 版本 (CUDA 12.1)...
-    ...
-    ✅ PyTorch 安装完成！
-    ✅ PyTorch 2.0.1+cu121 已成功安装
-    ✅ CUDA 版本: 12.1
-    ✅ GPU 支持: 是
-    
-    🎉 安装成功！后续步骤:
-      1. 验证环境: python environment/verify_setup.py
-      2. 开始训练: python train.py
-      3. 测试模型: python test.py
-
 """
 
 import sys
+import os
 import platform
 import argparse
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 问题：当直接运行 python environment/install_pytorch.py 时，Python 会将 environment/ 加入 sys.path[0]
+# 解决：优先加入项目根目录，并移除/调整 environment/ 目录优先级
+_current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（environment/）
+_project_root = os.path.dirname(_current_dir)  # 项目根目录
+
+# 移除 sys.path 中的 environment/ 目录（Python 自动添加）
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+
+# 确保项目根目录在最前面
+if _project_root in sys.path:
+    sys.path.remove(_project_root)
+sys.path.insert(0, _project_root)
+
 from environment.device_config import (
     detect_cuda_version,
     check_pytorch_installed,

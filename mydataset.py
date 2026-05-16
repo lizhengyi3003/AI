@@ -9,6 +9,17 @@
     - 验证/测试集：无增强，仅进行中心裁剪和标准化
     - 使用ImageNet标准的均值和标准差进行归一化
 """
+import sys
+import os
+
+# ============ 调整 sys.path 以支持脚本导入 ============
+# 如果此模块被直接执行（不是被导入），确保项目根目录在 sys.path 中
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
@@ -55,12 +66,6 @@ def get_dataloaders(data_root, batch_size=32, num_workers=2):
         - 所有图像被缩放至224×224像素（ResNeXt模型的标准输入尺寸）
         - 使用ImageNet的官方均值[0.485, 0.456, 0.406]和标准差[0.229, 0.224, 0.225]
         - 训练集启用shuffle，验证/测试集不启用shuffle
-    
-    Example:
-        >>> train_loader, val_loader, test_loader, classes = get_dataloaders('data', batch_size=32)
-        >>> for images, labels in train_loader:
-        ...     print(images.shape)  # torch.Size([32, 3, 224, 224])
-        ...     break
     """
     # ============ 训练集数据变换（Data Augmentation）============
     # 目的：增加训练数据的多样性，防止模型过拟合

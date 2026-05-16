@@ -19,17 +19,6 @@
     - print_prediction_result(): 格式化打印预测结果
     - get_class_index_map(): 建立类别名与索引的映射
 
-使用方法：
-    from utils.utils import predict_single_image, load_model_weights, get_class_names
-    
-    # 加载模型和类别
-    model = load_model_weights(model, "model-out/best.pth", device)
-    classes = get_class_names("data")
-    
-    # 预测单张图片
-    result = predict_single_image("test.jpg", model, device, classes)
-    print_prediction_result(result)
-
 注意事项：
     - 所有函数假设数据集目录结构为：data/train/class1/、data/train/class2/等
     - 图片预处理采用与验证集一致的方法（缩放、中心裁剪、标准化）
@@ -43,7 +32,7 @@ import torch.nn as nn
 from torchvision import transforms
 from PIL import Image
 import os
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Any
 
 # ============================================================
 # 模型加载和预测函数
@@ -80,21 +69,6 @@ def load_model_weights(model: nn.Module, weight_path: str, device: torch.device)
             提示用户检查路径是否正确、文件是否存在。
         RuntimeError: 如果权重形状与模型不匹配，PyTorch会抛出此异常。
             通常是由于模型结构不一致导致。
-    
-    使用示例（Example）:
-        >>> import torch
-        >>> from model import ResNeXt
-        >>> from utils.utils import load_model_weights
-        >>> 
-        >>> # 设定设备
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        >>> 
-        >>> # 创建模型
-        >>> model = ResNeXt(num_classes=101).to(device)
-        >>> 
-        >>> # 加载权重
-        >>> model = load_model_weights(model, "model-out/best.pth", device)
-        >>> ✓ 权重加载成功: model-out/best.pth
     
     注意事项（Note）:
         - 必须确保模型结构与权重文件对应，否则会报错
@@ -148,18 +122,6 @@ def get_class_names(data_root: str) -> List[str]:
     异常处理（Raises）:
         FileNotFoundError: 如果data_root/train目录不存在，抛出此异常。
             通常是由于数据集路径错误或目录结构不符合要求。
-    
-    使用示例（Example）:
-        >>> from utils.utils import get_class_names
-        >>> 
-        >>> # 获取数据集类别
-        >>> classes = get_class_names("data")
-        >>> ✓ 加载类别: 共 101 个
-        >>> 
-        >>> print(f"类别总数: {len(classes)}")
-        >>> 类别总数: 101
-        >>> print(f"前5个类别: {classes[:5]}")
-        >>> 前5个类别: ['accordion', 'airplanes', 'anchor', 'ant', 'barrel']
     
     注意事项（Note）:
         - 类别名通过os.listdir()读取，不需要手动维护
@@ -246,37 +208,10 @@ def predict_single_image(
             - 'top5_scores' (List[float]): Top5置信度列表
             - 'image_path' (str): 输入图片的路径（便于追溯）
         
-        返回示例：
-            {
-                'pred_class': 'cat',
-                'pred_idx': 2,
-                'confidence': 0.9567,
-                'top5_classes': ['cat', 'tiger', 'leopard', 'lion', 'dog'],
-                'top5_scores': [0.9567, 0.0321, 0.0089, 0.0018, 0.0005],
-                'image_path': 'test.jpg'
-            }
-    
     异常处理（Raises）:
         FileNotFoundError: 如果图片文件不存在，抛出此异常。
         PIL.UnidentifiedImageError: 如果文件格式无法识别（损坏的图片）。
         RuntimeError: 如果模型前向传播出错。
-    
-    使用示例（Example）:
-        >>> import torch
-        >>> from model import ResNeXt
-        >>> from utils.utils import predict_single_image, load_model_weights, get_class_names
-        >>> 
-        >>> # 初始化
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        >>> classes = get_class_names("data")
-        >>> model = ResNeXt(num_classes=len(classes)).to(device)
-        >>> model = load_model_weights(model, "model-out/best.pth", device)
-        >>> model.eval()
-        >>> 
-        >>> # 预测
-        >>> result = predict_single_image("test_image.jpg", model, device, classes)
-        >>> print(f"预测: {result['pred_class']}, 置信度: {result['confidence']:.2%}")
-        >>> 预测: cat, 置信度: 95.67%
     
     注意事项（Note）:
         - 模型必须处于eval模式（禁用Dropout和BatchNorm更新）
@@ -406,26 +341,6 @@ def print_prediction_result(result: Dict[str, Any]) -> None:
     返回值（Returns）:
         None: 函数直接打印到控制台，无返回值
     
-    使用示例（Example）:
-        >>> from utils.utils import predict_single_image, print_prediction_result
-        >>> 
-        >>> result = predict_single_image("test.jpg", model, device, classes)
-        >>> print_prediction_result(result)
-        
-        输出示例：
-        ============================================================
-        图片路径: test.jpg
-        预测类别: cat
-        置信度: 95.67%
-        
-        Top5 预测:
-          1. cat: 95.67%
-          2. tiger: 3.21%
-          3. leopard: 0.89%
-          4. lion: 0.18%
-          5. dog: 0.05%
-        ============================================================
-    
     注意事项（Note）:
         - 调用前需确保result字典包含所有必要的键
         - 使用format formatting符号{:.2%}格式化百分比
@@ -479,21 +394,6 @@ def get_class_index_map(data_root: str) -> Dict[str, int]:
     
     异常处理（Raises）:
         FileNotFoundError: 如果data_root/train目录不存在（由get_class_names抛出）
-    
-    使用示例（Example）:
-        >>> from utils.utils import get_class_index_map
-        >>> 
-        >>> # 获取映射
-        >>> class_map = get_class_index_map("data")
-        >>> 
-        >>> # 查询类别索引
-        >>> cat_idx = class_map['cat']
-        >>> print(f"'cat' 的索引: {cat_idx}")
-        >>> 'cat' 的索引: 15
-        >>> 
-        >>> # 检查类别是否存在
-        >>> if 'dog' in class_map:
-        ...     print(f"'dog' 的索引: {class_map['dog']}")
     
     注意事项（Note）:
         - 映射的顺序与get_class_names()返回的列表顺序一致

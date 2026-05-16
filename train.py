@@ -15,14 +15,7 @@
 
 模块功能：
     - train(): 执行ResNeXt模型的完整训练过程
-
-使用方法：
-    $ python train.py
-    # 输出每个epoch的训练损失、准确率、验证损失和准确率
-    # 保存最佳模型到 model-out/best.pth
-    # 保存最后一个模型到 model-out/last.pth
-    # 训练日志保存到 train_log.txt
-
+    
 注意事项：
     - 确保data/路径下有train/、val/、test/三个子目录，各包含类别子文件夹
     - GPU可用时自动使用GPU训练（速度快10-50倍）
@@ -30,13 +23,23 @@
     - 使用tqdm库显示训练进度条
 """
 
+import sys
+import os
+import argparse
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 当直接从项目根目录运行时，Python 会自动添加当前目录到 sys.path
+# 这里确保项目根目录优先级最高，便于模块导入
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+sys.path.insert(0, _current_dir)
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
-import os
-import argparse
 from model import ResNeXt
 from mydataset import get_dataloaders
 from environment.device_utils import parse_device_arg, setup_device

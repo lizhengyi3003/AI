@@ -18,26 +18,6 @@
     - predict_single(): 预测单张图片
     - interactive_predict(): 交互式预测单张图片
 
-使用方法：
-    $ python utils/predict.py
-    # 进入交互模式，输入图片路径进行预测
-    
-    或者通过代码调用：
-    from utils.predict import predict_single
-    result = predict_single("test_image.jpg")
-    print(f"预测: {result['pred_class']}, 置信度: {result['confidence']:.2%}")
-
-输出示例：
-    预测类别: cat
-    置信度: 95.67%
-    
-    Top5 预测:
-      1. cat: 95.67%
-      2. tiger: 3.21%
-      3. leopard: 0.89%
-      4. lion: 0.18%
-      5. dog: 0.05%
-
 注意事项：
     - 模型需提前训练并保存到 model-out/best.pth
     - 图片格式支持：JPG、PNG、BMP等PIL支持的格式
@@ -45,12 +25,11 @@
     - 推理时自动使用GPU加速（如可用）
 """
 
-import torch
+import sys
 import os
 import argparse
-import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Optional, List, Dict, Any
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
 # 问题：当直接运行 python utils/predict.py 时，Python 会将 utils/ 加入 sys.path[0]
@@ -67,6 +46,7 @@ if _project_root in sys.path:
     sys.path.remove(_project_root)
 sys.path.insert(0, _project_root)
 
+import torch
 from model import ResNeXt
 from utils.utils import (
     load_model_weights,
@@ -110,23 +90,6 @@ def predict_single(image_path: str, model: Optional[torch.nn.Module] = None,
         FileNotFoundError: 如果图片文件不存在
         FileNotFoundError: 如果模型权重文件不存在
         RuntimeError: 如果模型前向传播失败
-    
-    Example:
-        >>> # 简单使用：自动加载模型
-        >>> result = predict_single("test.jpg")
-        >>> print(f"预测: {result['pred_class']}")
-        >>> print(f"置信度: {result['confidence']:.2%}")
-        
-        >>> # 批量预测：复用同一个模型（推荐）
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        >>> model = ResNeXt(num_classes=101).to(device)
-        >>> model = load_model_weights(model, "model-out/best.pth", device)
-        >>> model.eval()
-        >>> classes = get_class_names("data")
-        >>> 
-        >>> for image_path in ["img1.jpg", "img2.jpg", "img3.jpg"]:
-        ...     result = predict_single(image_path, model, classes)
-        ...     print(result['pred_class'])
     
     Note:
         - 第一次调用时会自动加载模型和类别信息，耗时较长（1-2秒）
@@ -196,19 +159,6 @@ def predict_batch(image_dir: str, output_file: Optional[str] = None) -> List[Dic
     Raises:
         FileNotFoundError: 如果指定的目录不存在
         ValueError: 如果目录中没有找到任何图片
-    
-    Example:
-        >>> # 批量预测一个目录下的所有图片
-        >>> results = predict_batch("test_images/")
-        >>> print(f"处理了 {len(results)} 张图片")
-        >>> for result in results:
-        ...     print(f"{result['image_path']}: {result['pred_class']}")
-        
-        >>> # 批量预测并保存结果到文件
-        >>> results = predict_batch("test_images/", output_file="results.txt")
-        >>> # results.txt 格式:
-        >>> # test_images/cat.jpg, cat, 95.67%
-        >>> # test_images/dog.png, dog, 88.34%
     
     Note:
         - 会自动跳过无法识别的文件类型
@@ -330,10 +280,10 @@ def interactive_predict(device: Optional[torch.device] = None) -> None:
     
     进入交互式命令行界面，用户可以逐个输入图片路径进行预测。
     支持以下命令：
-        - 输入图片路径：进行预测（例如：test.jpg 或 ./data/test.jpg）
-        - 'batch': 切换到批量预测模式（输入目录路径）
-        - 'quit': 退出程序
-        - 'help': 显示帮助信息
+        - 输入图片路径：进行单张预测（例如：test.jpg 或 ./data/test.jpg）
+        - 'batch <目录路径>'：批量预测指定目录下的所有图片
+        - 'help'：显示帮助信息
+        - 'quit'：退出程序
     
     Args:
         device (Optional[torch.device]): 计算设备对象。
@@ -341,17 +291,6 @@ def interactive_predict(device: Optional[torch.device] = None) -> None:
     
     Returns:
         None: 交互式程序，直接打印结果到控制台
-    
-    Example:
-        >>> interactive_predict(torch.device('cuda'))
-        🎯 进入交互预测模式
-        输入图片路径 (输入 'help' 获取帮助, 'quit' 退出):
-        > test.jpg
-        预测: cat, 置信度: 95.67%
-        > dog.png
-        预测: dog, 置信度: 88.34%
-        > quit
-        👋 再见!
     
     Note:
         - 支持相对路径和绝对路径
@@ -376,17 +315,19 @@ def interactive_predict(device: Optional[torch.device] = None) -> None:
     print("🎯 进入交互预测模式")
     print("="*60)
     print("命令说明:")
-    print("  - 输入图片路径进行单张预测 (例如: test.jpg 或 ./data/test.jpg)")
-    print("  - 输入 'batch 目录路径' 批量预测 (例如: batch ./test_images/)")
-    print("  - 输入 'help' 显示此帮助信息")
-    print("  - 输入 'quit' 退出程序")
+    print("  1. 单张预测：输入图片路径")
+    print("     例如: test.jpg 或 ./data/test.jpg")
+    print("  2. 批量预测：输入 'batch' + 目录路径")
+    print("     例如: batch ./test_images/")
+    print("  3. 获取帮助：输入 'help'")
+    print("  4. 退出程序：输入 'quit'")
     print("="*60 + "\n")
     
     # ============ 交互循环 ============
     while True:
         try:
             # 获取用户输入
-            user_input = input("输入命令 (图片路径/batch/help/quit): ").strip()
+            user_input = input("输入命令 (图片路径/batch 目录/help/quit): ").strip()
             
             # 处理特殊命令
             if user_input.lower() == 'quit':
@@ -396,14 +337,22 @@ def interactive_predict(device: Optional[torch.device] = None) -> None:
             elif user_input.lower() == 'help':
                 # 显示帮助信息
                 print("\n" + "-"*60)
-                print("📖 使用说明")
+                print("📖 交互命令使用说明")
                 print("-"*60)
-                print("1. 单张预测: 输入图片路径")
-                print("   示例: test.jpg")
-                print("   示例: ./data/test/cat.png")
-                print("\n2. 批量预测: 输入 'batch' + 空格 + 目录路径")
-                print("   示例: batch ./test_images/")
-                print("\n3. 退出: 输入 'quit'")
+                print("\n【单张图片预测】")
+                print("  输入图片路径，支持相对路径和绝对路径")
+                print("  示例：")
+                print("    > test.jpg")
+                print("    > ./data/test/cat.png")
+                print("    > C:\\\\Users\\\\images\\\\dog.jpg")
+                print("\n【批量预测】")
+                print("  输入 'batch' 加空格加目录路径")
+                print("  示例：")
+                print("    > batch ./test_images/")
+                print("    > batch /data/predict/")
+                print("\n【其他命令】")
+                print("  help  - 显示此帮助信息")
+                print("  quit  - 退出程序")
                 print("-"*60 + "\n")
                 continue
             

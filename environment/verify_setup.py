@@ -27,35 +27,6 @@
     - check_model_init(): 测试模型初始化
     - main(): 运行完整检查并输出报告
 
-使用方法：
-    $ python environment/verify_setup.py
-    # 输出详细的环境检查报告
-    # 成功返回0，失败返回1
-
-输出示例：
-    ============================================================
-    ResNeXt 项目环境验证工具
-    ============================================================
-    
-    📦 检查必需的 Python 包...
-    ✅ PyTorch              2.0.1
-    ✅ torchvision          0.15.2
-    ✅ tqdm                 4.65.0
-    ...
-    
-    📂 检查项目文件...
-    ✅ model.py            模型定义
-    ...
-    
-    验证总结:
-      依赖包:   ✅ 正常
-      项目文件: ✅ 正常
-      代码语法: ✅ 正常
-      模型初始: ✅ 正常
-    
-    ✅ 环境检查通过！可以开始训练:
-       python train.py
-
 注意事项：
     - 该脚本不修改任何文件，仅进行检查
     - 检查失败时给出具体的错误信息和修复建议
@@ -101,16 +72,6 @@ def check_module(module_name, package_name=None):
         bool: 包检查结果。
             True: 包存在且可导入
             False: 包不存在或导入失败
-
-    输出示例：
-        ✅ PyTorch              2.1.0
-        ❌ tensorflow          (导入失败: No module named 'tensorflow')
-
-    使用示例（Example）:
-        >>> from verify_setup import check_module
-        >>> check_module("torch", "PyTorch")
-        ✅ PyTorch              2.1.0
-        True
 
     注意事项（Note）:
         - try-except捕捉ImportError获取导入错误信息
@@ -163,25 +124,6 @@ def check_files():
         1. ✅ 核心脚本文件
         2. ✅ 数据集目录
         3. ✅ 数据目录内容
-
-    输出示例：
-        📂 检查项目文件...
-        ✅ model.py            模型定义
-        ✅ mydataset.py        数据加载
-        ✅ train.py            训练脚本
-        ✅ test.py             测试脚本
-        ✅ utils.py            工具函数
-        ✅ predict.py          推理预测
-
-        📂 检查数据集目录...
-        ✅ data/train          (6941 张)
-        ✅ data/val            (2379 张)
-        ✅ data/test           (1366 张)
-
-    使用示例（Example）:
-        >>> from verify_setup import check_files
-        >>> check_files()
-        True
 
     注意事项（Note）:
         - 文件不存在时会提示用户检查文件位置
@@ -319,18 +261,12 @@ def check_code_syntax():
         ✅ utils.py            正常
         ✅ predict.py          正常
 
-    使用示例（Example）:
-        >>> from verify_setup import check_code_syntax
-        >>> check_code_syntax()
-        True
-
     注意事项（Note）:
         - py_compile只检查语法，不检测运行时错误
         - 语法错误会显示具体的行号和错误信息
         - 编译失败的文件名和详细信息会一并输出
     """
     import py_compile
-    import io
     
     print("\n✓ 代码语法检查...")
 
@@ -391,17 +327,6 @@ def check_model_init():
         2. ✅ 总参数量（以百万为单位）
         3. ✅ 前向传播正常
         4. ✅ 输出形状正确
-
-    输出示例：
-        🧠 检查模型初始化...
-        ✅ 模型初始化成功
-        ✅ 总参数量: 83.53M
-        ✅ 前向传播正常，输出形状: torch.Size([2, 101])
-
-    使用示例（Example）:
-        >>> from verify_setup import check_model_init
-        >>> check_model_init()
-        True
 
     注意事项（Note）:
         - 使用torch.no_grad()禁用梯度计算，加快测试
@@ -470,11 +395,6 @@ def main():
         5. 模型初始化检查结果
         6. 汇总报告
         7. 建议和后续步骤
-
-    使用示例（Example）:
-        >>> python environment/verify_setup.py
-        # 运行完整检查
-        # 返回exit code 0（成功）或1（失败）
 
     注意事项（Note）:
         - 该函数不返回任何有意义的值，应通过sys.exit()传递退出码
@@ -640,26 +560,6 @@ if __name__ == "__main__":
         1. 运行main()函数执行所有检查
         2. main()返回exit code（0表示成功，1表示失败）
         3. sys.exit()将此码传递给操作系统
-
-    典型输出：
-        ============================================================
-        ResNeXt 项目环境验证工具
-        ============================================================
-        
-        📦 检查必需的 Python 包...
-        ✅ PyTorch              2.1.0
-        ✅ torchvision          0.16.0
-        ...
-        
-        验证总结:
-          依赖包:   ✅ 正常
-          项目文件: ✅ 正常
-          代码语法: ✅ 正常
-          模型初始: ✅ 正常
-        ============================================================
-        
-        ✅ 环境检查通过！可以开始训练:
-           python train.py
 
     出错情况：
         若任何检查失败，会输出❌符号和错误信息。
