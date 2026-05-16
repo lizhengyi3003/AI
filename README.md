@@ -28,7 +28,7 @@ pip install -r requirements.txt
 #### ② GPU 版本（需要 NVIDIA 显卡）
 **方案 A - 自动安装（推荐）**
 ```bash
-python install_pytorch.py
+python environment/install_pytorch.py
 ```
 交互式选择设备，自动匹配CUDA版本并安装。
 
@@ -432,7 +432,7 @@ python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_
 **解决方案**：
 1. 确保解压数据集到 data/ 目录
 2. 检查目录结构是否为 data/train/class_name/image.jpg
-3. 运行 `python verify_setup.py` 检查
+3. 运行 `python environment/verify_setup.py` 检查
 
 ### Q6: 模型权重加载失败
 
@@ -822,7 +822,7 @@ lr = 0.01             # 初始学习率
 使用 `verify_setup.py` 检查环境和项目配置是否正确：
 
 ```bash
-python verify_setup.py
+python environment/verify_setup.py
 ```
 
 **检查项目**：
@@ -839,11 +839,19 @@ ResNeXt 项目环境验证工具
 ============================================================
 
 📦 检查必需的 Python 包...
-✅ PyTorch              2.1.0
-✅ torchvision          0.16.0
-✅ tqdm                 4.65.0
-✅ numpy                1.24.0
-✅ Pillow               10.0.0
+
+  核心依赖:
+✅ PyTorch              2.12.0+cpu (CPU only)
+✅ torchvision          0.27.0+cpu
+
+  工具依赖:
+✅ tqdm                 4.67.3
+✅ Pillow               12.2.0
+✅ NumPy                2.3.5
+
+  可视化依赖:
+✅ matplotlib           3.10.9
+✅ seaborn              0.13.2
 
 📂 检查项目文件...
 ✅ model.py            模型定义
@@ -864,7 +872,7 @@ ResNeXt 项目环境验证工具
 
 🧠 检查模型初始化...
 ✅ 模型初始化成功
-✅ 总参数量: 83.53M
+✅ 总参数量: 15.90M
 ✅ 前向传播正常，输出形状: torch.Size([2, 101])
 
 ============================================================
@@ -875,8 +883,26 @@ ResNeXt 项目环境验证工具
   模型初始: ✅ 正常
 ============================================================
 
-✅ 环境检查通过！可以开始训练:
-   python train.py
+✅ 环境检查通过！可以开始以下工作：
+============================================================
+
+  【训练】
+    python train.py --device auto
+
+  【测试】
+    python test.py --device auto
+
+  【推理预测】
+    python utils/predict.py --device auto
+
+  【训练曲线可视化】
+    python utils/draw.py
+
+  【评估报告生成】
+    python utils/report.py --device auto
+
+  【环境验证】
+    python environment/verify_setup.py
 ```
 
 **使用场景**：
@@ -884,25 +910,6 @@ ResNeXt 项目环境验证工具
 - 修改依赖后检查兼容性
 - 出现异常时诊断问题根源
 - CI/CD 管道中自动验证
-
----
-
-### 6. 超参数调整
-
-在 `train.py` 中修改以下参数进行实验：
-```python
-batch_size = 32       # 批大小（GPU 显存不足可改为 16）
-epochs = 80           # 训练 epoch 数
-lr = 0.01             # 初始学习率
-```
-
-**常见调整**：
-| 参数 | 当前值 | 调整建议 |
-|------|--------|----------|
-| `batch_size` | 32 | 显存充足可改为 64；显存不足改为 16 |
-| `epochs` | 80 | 快速测试改为 10；长期训练改为 150 |
-| `lr` | 0.01 | 收敛缓慢改为 0.02；震荡改为 0.005 |
-| `weight_decay` | 1e-4 | 过拟合改为 5e-4；欠拟合改为 1e-5 |
 
 ---
 

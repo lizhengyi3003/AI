@@ -1,6 +1,6 @@
 # ResNeXt 项目核心依赖配置
 # 快速安装：pip install -r requirements.txt
-# GPU版本：python install_pytorch.py
+# GPU版本：python environment/install_pytorch.py
 
 # 核心深度学习框架
 torch>=1.10.0                 # PyTorch深度学习框架
@@ -9,15 +9,6 @@ torchvision>=0.11.0          # 计算机视觉库（数据变换等）
 # 必需工具库
 tqdm>=4.62.0                 # 进度条显示
 Pillow>=8.3.0                # 图像处理库
-
-# 可选依赖（按需启用）
-# matplotlib>=3.5.0           # 绘图库（用于可视化训练曲线）
-# numpy>=1.21.0               # 数值计算（可选，某些版本自动依赖）
-
-# 数据可视化库（绘制训练曲线、显示图片等）
-# 取消下行注释安装：matplotlib
-# matplotlib>=3.4.0
-
-# 科学计算库（某些高级功能可能需要）
-# 取消下行注释安装：numpy
-# numpy>=1.19.0
+numpy>=1.21.0                # 数值计算库
+matplotlib>=3.5.0            # 图表绘制（训练曲线、评估报告）
+seaborn>=0.12.0              # 统计可视化（混淆矩阵热力图）

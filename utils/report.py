@@ -6,9 +6,6 @@
     3. 混淆矩阵热力图（所有类别的预测分布）
     4. 学习率变化曲线（从训练代码提取）
     5. 每类准确率柱状图（分类别的性能分析）
-
-使用方法：
-    $ python utils/report.py [--device {auto|gpu|cpu}]
     
 输出文件：
     - log/evaluation/test_accuracy_summary.txt - 测试准确率统计
@@ -22,8 +19,7 @@ import sys
 import os
 import argparse
 import random
-from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 from collections import defaultdict
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
@@ -37,7 +33,6 @@ sys.path.insert(0, _project_root)
 
 import torch
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
 
 import matplotlib  # type: ignore
 matplotlib.use('Agg')
@@ -49,7 +44,7 @@ import seaborn as sns  # type: ignore
 from model import ResNeXt
 from mydataset import get_dataloaders
 from environment.device_utils import parse_device_arg, setup_device
-from utils.utils import load_model_weights, get_class_names
+from utils.utils import get_class_names
 
 # 设置中文字体和显示参数
 rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
@@ -142,6 +137,8 @@ def test_and_analyze(device: torch.device, classes: List[str]) -> Tuple[float, D
 
 
 def save_test_accuracy_summary(accuracy: float, num_classes: int, num_test_samples: int,
+                               per_class_stats: Optional[Dict[int, Dict[str, int]]] = None,
+                               classes: Optional[List[str]] = None,
                                output_file: str = "log/evaluation/test_accuracy_summary.txt") -> None:
     """保存测试准确率汇总。
     
@@ -149,6 +146,8 @@ def save_test_accuracy_summary(accuracy: float, num_classes: int, num_test_sampl
         accuracy: 测试准确率
         num_classes: 类别总数
         num_test_samples: 测试样本总数
+        per_class_stats: 每类统计信息
+        classes: 类别名称列表
         output_file: 输出文件路径
     """
     print(f"\n📝 正在生成测试准确率汇总...")
@@ -183,7 +182,44 @@ def save_test_accuracy_summary(accuracy: float, num_classes: int, num_test_sampl
     else:
         content += "  需改进 - 模型在测试集上表现较差"
     
-    content += f"\n\n生成时间: 2026-05-16\n{'='*60}\n"
+    content += f"\n\n生成时间: 2026-05-16\n"
+    
+    # ============ 每类准确率分析 ============
+    if per_class_stats is not None and classes is not None:
+        # 计算每类准确率
+        class_acc_list = []
+        for class_idx in range(num_classes):
+            if class_idx in per_class_stats:
+                stats = per_class_stats[class_idx]
+                if stats['total'] > 0:
+                    acc_val = stats['correct'] / stats['total']
+                    class_acc_list.append((classes[class_idx], acc_val, stats['correct'], stats['total']))
+        
+        if class_acc_list:
+            # 排序
+            sorted_by_acc = sorted(class_acc_list, key=lambda x: x[1], reverse=True)
+            
+            # 统计高/中/低准确率类别数
+            high = sum(1 for _, a, _, _ in class_acc_list if a >= 0.85)
+            mid = sum(1 for _, a, _, _ in class_acc_list if 0.70 <= a < 0.85)
+            low = sum(1 for _, a, _, _ in class_acc_list if a < 0.70)
+            
+            content += f"""
+【每类准确率分布】
+  高准确率 (≥85%):  {high} 类
+  中准确率 (70-85%): {mid} 类
+  低准确率 (<70%):   {low} 类
+
+【表现最佳的 5 个类别】
+"""
+            for rank, (name, acc_val, corr, tot) in enumerate(sorted_by_acc[:5], 1):
+                content += f"  {rank}. {name:<25s} {acc_val*100:5.1f}% ({corr}/{tot})\n"
+            
+            content += f"\n【表现最差的 5 个类别】\n"
+            for rank, (name, acc_val, corr, tot) in enumerate(sorted_by_acc[-5:], 1):
+                content += f"  {rank}. {name:<25s} {acc_val*100:5.1f}% ({corr}/{tot})\n"
+    
+    content += f"\n{'='*60}\n"
     
     # 保存文件
     os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
@@ -235,7 +271,7 @@ def visualize_prediction_examples(classes: List[str], test_loader: torch.utils.d
     
     # 创建图表（更大的尺寸以容纳标题）
     grid_size = int(np.ceil(np.sqrt(num_samples)))
-    fig, axes = plt.subplots(grid_size, grid_size, figsize=(14, 14))
+    fig, axes = plt.subplots(grid_size, grid_size, figsize=(16, 16))
     axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
     
     for idx, sample_idx in enumerate(indices):
@@ -256,19 +292,19 @@ def visualize_prediction_examples(classes: List[str], test_loader: torch.utils.d
         pred_label = classes[all_preds[sample_idx]]
         is_correct = all_labels[sample_idx] == all_preds[sample_idx]
         
-        # 设置标题（使用更小的字体和简短格式以避免重叠）
+        # 设置标题（增大字体提高可读性）
         color = 'green' if is_correct else 'red'
         status = '[OK]' if is_correct else '[X]'
         title = f"{status} {true_label} -> {pred_label}"
-        ax.set_title(title, color=color, fontsize=8, fontweight='bold', pad=5)
+        ax.set_title(title, color=color, fontsize=11, fontweight='bold', pad=8)
         ax.axis('off')
     
     # 隐藏多余的子图
     for idx in range(len(indices), len(axes)):
         axes[idx].axis('off')
     
-    plt.tight_layout(pad=0.3)
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.tight_layout(pad=0.5)
+    plt.savefig(output_file, dpi=200, bbox_inches='tight')
     plt.close()
     
     print(f"✅ 预测样例已保存: {output_file}")
@@ -306,19 +342,19 @@ def generate_confusion_matrix(all_preds: List[int], all_labels: List[int], class
     
     # 绘制热力图
     display_classes = min(num_classes, max_classes)
-    fig, ax = plt.subplots(figsize=(12, 10))
+    fig, ax = plt.subplots(figsize=(14, 12))
     
     sns.heatmap(cm_normalized, annot=False, fmt='.2f', cmap='Blues',  # type: ignore
                 xticklabels=False, yticklabels=False, ax=ax,
                 cbar_kws={'label': 'Normalized Count'}, square=True)
     
-    ax.set_xlabel('Predicted Label', fontsize=11, fontweight='bold')
-    ax.set_ylabel('True Label', fontsize=11, fontweight='bold')
+    ax.set_xlabel('Predicted Label', fontsize=13, fontweight='bold')
+    ax.set_ylabel('True Label', fontsize=13, fontweight='bold')
     ax.set_title(f'Confusion Matrix (First {display_classes} Classes)', 
-                 fontsize=13, fontweight='bold', pad=15)
+                 fontsize=15, fontweight='bold', pad=15)
     
     plt.tight_layout(pad=1.0)
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.savefig(output_file, dpi=200, bbox_inches='tight')
     plt.close()
     
     print(f"✅ 混淆矩阵已保存: {output_file}")
@@ -479,7 +515,8 @@ def main() -> None:
     os.makedirs("log/evaluation", exist_ok=True)
     
     # 1. 测试准确率汇总
-    save_test_accuracy_summary(accuracy, len(classes), num_test_samples)
+    save_test_accuracy_summary(accuracy, len(classes), num_test_samples,
+                               analysis_data['per_class_stats'], classes)
     
     # 2. 预测样例可视化
     model = ResNeXt(num_classes=len(classes)).to(device)

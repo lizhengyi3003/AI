@@ -10,7 +10,9 @@
 检查项目：
     - ✅ PyTorch、torchvision等依赖包版本
     - ✅ model.py、train.py、test.py等核心脚本存在性
+    - ✅ utils/report.py、utils/draw.py等工具脚本存在性
     - ✅ data/train/、data/val/、data/test/数据集目录
+    - ✅ log/training/、log/evaluation/日志子目录结构
     - ✅ 脚本Python代码语法正确性
     - ✅ ResNeXt模型能否正常初始化和前向传播
 
@@ -140,8 +142,10 @@ def check_files():
         "mydataset.py": "数据加载与增强",
         "train.py": "训练脚本",
         "test.py": "测试脚本",
-        "utils/utils.py": "推理工具函数",
+        "utils/utils.py": "通用工具函数",
         "utils/predict.py": "推理预测脚本",
+        "utils/report.py": "模型评估报告生成",
+        "utils/draw.py": "训练曲线可视化",
         "environment/device_config.py": "设备检测模块",
         "environment/device_utils.py": "设备初始化模块",
         "environment/install_pytorch.py": "PyTorch安装脚本",
@@ -161,7 +165,7 @@ def check_files():
             all_files_ok = False
     
     print("\n  工具模块:")
-    for filepath in ["utils/utils.py", "utils/predict.py"]:
+    for filepath in ["utils/utils.py", "utils/predict.py", "utils/report.py", "utils/draw.py"]:
         if os.path.exists(filepath):
             print(f"  ✅ {filepath:<25} {required_files[filepath]}")
         else:
@@ -220,7 +224,9 @@ def check_files():
     required_dirs = {
         "utils": "工具函数目录",
         "environment": "环境配置目录",
-        "log": "训练日志目录",
+        "log": "日志输出目录",
+        "log/training": "训练输出子目录",
+        "log/evaluation": "评估报告子目录",
         "model-out": "模型输出目录",
     }
     
@@ -252,15 +258,6 @@ def check_code_syntax():
             True: 所有文件语法正确
             False: 存在语法错误
 
-    输出示例：
-        ✓ 代码语法检查...
-        ✅ model.py            正常
-        ✅ mydataset.py        正常
-        ✅ train.py            正常
-        ✅ test.py             正常
-        ✅ utils.py            正常
-        ✅ predict.py          正常
-
     注意事项（Note）:
         - py_compile只检查语法，不检测运行时错误
         - 语法错误会显示具体的行号和错误信息
@@ -278,6 +275,8 @@ def check_code_syntax():
         "test.py",
         "utils/utils.py",
         "utils/predict.py",
+        "utils/report.py",
+        "utils/draw.py",
         "environment/device_config.py",
         "environment/device_utils.py",
         "environment/install_pytorch.py",
@@ -353,7 +352,7 @@ def check_model_init():
         total_params = sum(p.numel() for p in model.parameters())
 
         # 除以1e6转换为百万单位，便于阅读
-        # 例如：83530000 → 83.53M
+        # 例如：15897509 → 15.90M
         print(f"✅ 总参数量: {total_params/1e6:.2f}M")
 
         # ============ 第四步：测试前向传播 ============
@@ -420,13 +419,17 @@ def main():
     tool_deps_ok = all([
         check_module("tqdm", "tqdm"),
         check_module("PIL", "Pillow"),
+        check_module("numpy", "NumPy"),
     ])
     
-    print("\n  可选依赖:")
-    check_module("numpy", "NumPy")
+    print("\n  可视化依赖:")
+    viz_deps_ok = all([
+        check_module("matplotlib", "matplotlib"),
+        check_module("seaborn", "seaborn"),
+    ])
 
     # 如果依赖包不完整，给出安装建议
-    if not (deps_ok and tool_deps_ok):
+    if not (deps_ok and tool_deps_ok and viz_deps_ok):
         print("\n⚠️  部分依赖缺失，请运行以下命令安装:")
         print("   pip install -r requirements.txt")
     
@@ -488,6 +491,7 @@ def main():
     # 根据结果显示✅（正常）或❌（有缺失）
     print(f"  核心依赖:   {'✅ 正常' if deps_ok else '❌ 有缺失'}")
     print(f"  工具依赖:   {'✅ 正常' if tool_deps_ok else '⚠️  警告'}")
+    print(f"  可视化依赖: {'✅ 正常' if viz_deps_ok else '⚠️  警告'}")
     print(f"  CUDA兼容:   {'✅ 兼容' if cuda_ok else '⚠️  警告'}")
     print(f"  项目文件:   {'✅ 正常' if files_ok else '❌ 有缺失'}")
     print(f"  代码语法:   {'✅ 正常' if syntax_ok else '❌ 有错误'}")
@@ -498,7 +502,7 @@ def main():
     # 根据所有检查结果显示不同的建议信息
     print("\n")
     
-    all_critical_ok = deps_ok and files_ok and syntax_ok and model_ok
+    all_critical_ok = deps_ok and tool_deps_ok and viz_deps_ok and files_ok and syntax_ok and model_ok
     
     if all_critical_ok:
         # 所有关键检查都通过，可以开始训练
@@ -510,6 +514,10 @@ def main():
         print("    python test.py --device auto")
         print("\n  【推理预测】")
         print("    python utils/predict.py --device auto")
+        print("\n  【训练曲线可视化】")
+        print("    python utils/draw.py")
+        print("\n  【评估报告生成】")
+        print("    python utils/report.py --device auto")
         print("\n  【环境验证】")
         print("    python environment/verify_setup.py")
         print("\n" + "=" * 60)
@@ -519,28 +527,45 @@ def main():
         print("❌ 环境检查未完全通过，请按以下步骤修复：")
         print("=" * 60)
         
+        step = 0
+        
         if not deps_ok:
-            print("\n  【第一步】安装核心依赖")
+            step += 1
+            print(f"\n  【第{step}步】安装核心依赖")
+            print("    pip install torch torchvision")
+        
+        if not tool_deps_ok:
+            step += 1
+            print(f"\n  【第{step}步】安装工具依赖")
+            print("    pip install tqdm pillow numpy")
+        
+        if not viz_deps_ok:
+            step += 1
+            print(f"\n  【第{step}步】安装可视化依赖")
+            print("    pip install matplotlib seaborn")
+        
+        if not deps_ok or not tool_deps_ok or not viz_deps_ok:
+            step += 1
+            print(f"\n  【第{step}步】或一键安装全部依赖")
             print("    pip install -r requirements.txt")
         
-        if not (deps_ok and tool_deps_ok):
-            print("\n  【第二步】安装所有依赖")
-            print("    pip install torch torchvision tqdm pillow numpy")
-        
         if not files_ok:
-            print("\n  【第三步】检查项目文件")
+            step += 1
+            print(f"\n  【第{step}步】检查项目文件")
             print("    - 确保所有文件都存在")
-            print("    - 检查data/目录结构")
+            print("    - 检查 data/ 目录结构")
         
         if not syntax_ok:
-            print("\n  【第四步】修复语法错误")
+            step += 1
+            print(f"\n  【第{step}步】修复语法错误")
             print("    - 查看上方错误信息")
-            print("    - 修复相应Python文件的语法")
+            print("    - 修复相应 Python 文件的语法")
         
         if not model_ok:
-            print("\n  【第五步】检查模型初始化")
-            print("    - 确保model.py能正常导入")
-            print("    - 检查ResNeXt类定义")
+            step += 1
+            print(f"\n  【第{step}步】检查模型初始化")
+            print("    - 确保 model.py 能正常导入")
+            print("    - 检查 ResNeXt 类定义")
         
         print("\n" + "=" * 60)
         return 1

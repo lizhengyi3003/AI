@@ -15,17 +15,12 @@
     - plot_accuracy(): 绘制 Accuracy 曲线
     - plot_combined(): 绘制合并双轴图
     - main(): 绘制所有图表
-
-使用方法：
-    $ python utils/draw.py
-    # 会在 log/training/ 目录下生成三个图表文件
 """
 
 import sys
 import os
 import re
-from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
 _current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +33,6 @@ import matplotlib  # type: ignore
 matplotlib.use('Agg')  # 使用非 GUI 后端，避免显示窗口
 import matplotlib.pyplot as plt  # type: ignore
 from matplotlib import rcParams  # type: ignore
-import numpy as np
 
 # 设置中文字体
 rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
@@ -70,11 +64,6 @@ def parse_log(log_file: str = "log/training/train_log.txt") -> Dict[str, Any]:
     Raises:
         FileNotFoundError: 如果日志文件不存在
         ValueError: 如果无法解析日志内容
-    
-    Example:
-        >>> data = parse_log()
-        >>> print(f"总共 {len(data['epochs'])} 个 epoch")
-        >>> print(f"最后一个 epoch 的验证准确率: {data['val_acc'][-1]:.4f}")
     """
     # 检查文件是否存在
     if not os.path.exists(log_file):
@@ -167,7 +156,7 @@ def plot_loss(data: Dict[str, Any], output_file: str = "log/training/loss_curve.
     plt.tight_layout(pad=1.0)
     
     # 保存图表
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.savefig(output_file, dpi=200, bbox_inches='tight')
     plt.close()
     
     print(f"✅ Loss 曲线已保存: {output_file}")
@@ -222,7 +211,7 @@ def plot_accuracy(data: Dict[str, Any], output_file: str = "log/training/accurac
     plt.tight_layout(pad=1.0)
     
     # 保存图表
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.savefig(output_file, dpi=200, bbox_inches='tight')
     plt.close()
     
     print(f"✅ Accuracy 曲线已保存: {output_file}")
@@ -287,10 +276,10 @@ def plot_combined(data: Dict[str, Any], output_file: str = "log/training/combine
     # 合并两个 Y 轴的图例
     # 获取所有线条
     lines = line1 + line2 + line3 + line4
-    labels = [l.get_label() for l in lines]
+    labels: List[str] = [str(l.get_label()) for l in lines]  # type: ignore[arg-type]
     
-    # 在图表上添加合并后的图例
-    ax1.legend(lines, labels, fontsize=10, loc='center left', framealpha=0.95)
+    # 在图表上添加合并后的图例（放在右上角，避免遮挡曲线）
+    ax1.legend(lines, labels, fontsize=10, loc='upper right', framealpha=0.95)
     
     # 设置 x 轴刻度
     ax1.set_xticks(range(0, len(data['epochs']) + 1, max(1, len(data['epochs']) // 10)))
@@ -299,7 +288,7 @@ def plot_combined(data: Dict[str, Any], output_file: str = "log/training/combine
     fig.tight_layout(pad=1.0)
     
     # 保存图表
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.savefig(output_file, dpi=200, bbox_inches='tight')
     plt.close()
     
     print(f"✅ 合并双轴图已保存: {output_file}")
@@ -387,10 +376,6 @@ if __name__ == "__main__":
     
     当该脚本直接运行时执行 main() 函数。
     这是 Python 的标准做法，确保模块在被导入为模块时不会自动执行。
-    
-    使用方式：
-        $ python utils/draw.py
-        # 会在 log/training/ 目录下生成三个 PNG 图表文件
     
     要求：
         - 已运行过 train.py，生成了 log/training/train_log.txt
