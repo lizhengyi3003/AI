@@ -16,13 +16,6 @@
 模块功能：
     - train(): 执行ResNeXt模型的完整训练过程
 
-使用方法：
-    $ python train.py
-    # 输出每个epoch的训练损失、准确率、验证损失和准确率
-    # 保存最佳模型到 model-out/best.pth
-    # 保存最后一个模型到 model-out/last.pth
-    # 训练日志保存到 train_log.txt
-
 注意事项：
     - 确保data/路径下有train/、val/、test/三个子目录，各包含类别子文件夹
     - GPU可用时自动使用GPU训练（速度快10-50倍）
@@ -30,13 +23,23 @@
     - 使用tqdm库显示训练进度条
 """
 
+import sys
+import os
+import argparse
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 当直接从项目根目录运行时，Python 会自动添加当前目录到 sys.path
+# 这里确保项目根目录优先级最高，便于模块导入
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+sys.path.insert(0, _current_dir)
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
-import os
-import argparse
 from model import ResNeXt
 from mydataset import get_dataloaders
 from environment.device_utils import parse_device_arg, setup_device
@@ -164,11 +167,10 @@ def train():
     # 创建目录用于保存训练好的模型权重和训练日志
     # exist_ok=True: 如果目录已存在则不报错
     os.makedirs("model-out", exist_ok=True)
-    os.makedirs("log", exist_ok=True)
+    os.makedirs(os.path.join("log", "training"), exist_ok=True)
     
     # 打开文件用于记录每个epoch的训练日志
-    # 模式"w": 写模式，如果文件存在则覆盖
-    log_path = os.path.join("log", "train_log.txt")
+    log_path = os.path.join("log", "training", "train_log.txt")
     log_file = open(log_path, "w")
     
     # ============ 第九步：初始化最佳准确率跟踪 ============
@@ -374,7 +376,7 @@ def train():
     print(f"🏆 最佳验证准确率: {best_acc:.4f} ({best_acc*100:.2f}%)")
     print(f"💾 最佳模型已保存: model-out/best.pth")
     print(f"💾 最后模型已保存: model-out/last.pth")
-    print(f"📝 训练日志已保存: train_log.txt")
+    print(f"📝 训练日志已保存: log/training/train_log.txt")
     print("="*60)
 
 

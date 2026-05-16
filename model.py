@@ -236,11 +236,6 @@ class ResNeXt(nn.Module):
             
         Returns:
             nn.Sequential: 由多个ResNeXtBlock按顺序组成的模块。
-        
-        Example:
-            layer2 = _make_stage(in_ch=256, out_ch=512, cardinality=8, 
-                                base_width=32, blocks=2, first_stride=2)
-            # 输出形状：[B, 512, H/2, W/2] （相比输入减半）
         """
         layers = []
         # 第一个块：可能进行下采样（stride可能为2），通道数从in_ch变为out_ch

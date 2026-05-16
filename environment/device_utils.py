@@ -5,21 +5,6 @@
     1. 命令行参数解析（--device 参数）
     2. 设备初始化（CPU/GPU选择）
     3. 设备信息输出（显卡型号、内存等）
-
-使用方法：
-    # 在训练脚本中使用
-    import argparse
-    from device_utils import parse_device_arg, setup_device
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=str, default='auto',
-                       choices=['auto', 'gpu', 'cpu'])
-    args = parser.parse_args()
-    
-    device_name = parse_device_arg(args)
-    device = setup_device(device_name)
-    
-    model = MyModel().to(device)
 """
 
 import torch
@@ -51,15 +36,6 @@ def parse_device_arg(args: argparse.Namespace) -> str:
     Raises:
         AttributeError: args 对象不包含 device 属性
         ValueError: device 值不是预期的选项
-    
-    Example:
-        >>> parser = argparse.ArgumentParser()
-        >>> parser.add_argument('--device', default='auto',
-        ...                    choices=['auto', 'gpu', 'cpu'])
-        >>> args = parser.parse_args(['--device', 'gpu'])
-        >>> device_name = parse_device_arg(args)
-        >>> print(device_name)
-        gpu
     
     Note:
         - 函数主要用于命令行参数的标准化
@@ -119,25 +95,6 @@ def setup_device(device_choice: str = 'auto') -> torch.device:
     Raises:
         RuntimeError: 用户强制使用GPU但系统无CUDA支持
         ValueError: device_choice 不是有效的选择
-    
-    Example:
-        >>> # 自动检测
-        >>> device = setup_device('auto')
-        📱 设备信息: CUDA
-        ✅ GPU可用: 是
-        🎮 显卡型号: NVIDIA GeForce RTX 4090
-        💾 显存: 24564 MB
-        
-        >>> # 强制CPU
-        >>> device = setup_device('cpu')
-        📱 设备信息: CPU
-        ✅ CPU核心数: 16
-        
-        >>> # 在模型中使用
-        >>> model = MyModel().to(device)
-        >>> for images, labels in dataloader:
-        ...     images = images.to(device)
-        ...     outputs = model(images)
     
     Note:
         - 'auto' 模式下，如果GPU不可用会自动降级到CPU（不报错）

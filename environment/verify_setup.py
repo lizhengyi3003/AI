@@ -10,7 +10,9 @@
 检查项目：
     - ✅ PyTorch、torchvision等依赖包版本
     - ✅ model.py、train.py、test.py等核心脚本存在性
+    - ✅ utils/report.py、utils/draw.py等工具脚本存在性
     - ✅ data/train/、data/val/、data/test/数据集目录
+    - ✅ log/training/、log/evaluation/日志子目录结构
     - ✅ 脚本Python代码语法正确性
     - ✅ ResNeXt模型能否正常初始化和前向传播
 
@@ -27,35 +29,6 @@
     - check_model_init(): 测试模型初始化
     - main(): 运行完整检查并输出报告
 
-使用方法：
-    $ python verify_setup.py
-    # 输出详细的环境检查报告
-    # 成功返回0，失败返回1
-
-输出示例：
-    ============================================================
-    ResNeXt 项目环境验证工具
-    ============================================================
-    
-    📦 检查必需的 Python 包...
-    ✅ PyTorch              2.0.1
-    ✅ torchvision          0.15.2
-    ✅ tqdm                 4.65.0
-    ...
-    
-    📂 检查项目文件...
-    ✅ model.py            模型定义
-    ...
-    
-    验证总结:
-      依赖包:   ✅ 正常
-      项目文件: ✅ 正常
-      代码语法: ✅ 正常
-      模型初始: ✅ 正常
-    
-    ✅ 环境检查通过！可以开始训练:
-       python train.py
-
 注意事项：
     - 该脚本不修改任何文件，仅进行检查
     - 检查失败时给出具体的错误信息和修复建议
@@ -66,6 +39,21 @@
 import sys
 import importlib
 import os
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 问题：当直接运行 python environment/verify_setup.py 时，Python 会将 environment/ 加入 sys.path[0]
+# 解决：优先加入项目根目录，并移除/调整 environment/ 目录优先级
+_current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（environment/）
+_project_root = os.path.dirname(_current_dir)  # 项目根目录
+
+# 移除 sys.path 中的 environment/ 目录（Python 自动添加）
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+
+# 确保项目根目录在最前面
+if _project_root in sys.path:
+    sys.path.remove(_project_root)
+sys.path.insert(0, _project_root)
 
 
 def check_module(module_name, package_name=None):
@@ -86,16 +74,6 @@ def check_module(module_name, package_name=None):
         bool: 包检查结果。
             True: 包存在且可导入
             False: 包不存在或导入失败
-
-    输出示例：
-        ✅ PyTorch              2.1.0
-        ❌ tensorflow          (导入失败: No module named 'tensorflow')
-
-    使用示例（Example）:
-        >>> from verify_setup import check_module
-        >>> check_module("torch", "PyTorch")
-        ✅ PyTorch              2.1.0
-        True
 
     注意事项（Note）:
         - try-except捕捉ImportError获取导入错误信息
@@ -149,25 +127,6 @@ def check_files():
         2. ✅ 数据集目录
         3. ✅ 数据目录内容
 
-    输出示例：
-        📂 检查项目文件...
-        ✅ model.py            模型定义
-        ✅ mydataset.py        数据加载
-        ✅ train.py            训练脚本
-        ✅ test.py             测试脚本
-        ✅ utils.py            工具函数
-        ✅ predict.py          推理预测
-
-        📂 检查数据集目录...
-        ✅ data/train          (6941 张)
-        ✅ data/val            (2379 张)
-        ✅ data/test           (1366 张)
-
-    使用示例（Example）:
-        >>> from verify_setup import check_files
-        >>> check_files()
-        True
-
     注意事项（Note）:
         - 文件不存在时会提示用户检查文件位置
         - 数据集目录内容检查使用递归统计
@@ -183,8 +142,10 @@ def check_files():
         "mydataset.py": "数据加载与增强",
         "train.py": "训练脚本",
         "test.py": "测试脚本",
-        "utils/utils.py": "推理工具函数",
+        "utils/utils.py": "通用工具函数",
         "utils/predict.py": "推理预测脚本",
+        "utils/report.py": "模型评估报告生成",
+        "utils/draw.py": "训练曲线可视化",
         "environment/device_config.py": "设备检测模块",
         "environment/device_utils.py": "设备初始化模块",
         "environment/install_pytorch.py": "PyTorch安装脚本",
@@ -204,7 +165,7 @@ def check_files():
             all_files_ok = False
     
     print("\n  工具模块:")
-    for filepath in ["utils/utils.py", "utils/predict.py"]:
+    for filepath in ["utils/utils.py", "utils/predict.py", "utils/report.py", "utils/draw.py"]:
         if os.path.exists(filepath):
             print(f"  ✅ {filepath:<25} {required_files[filepath]}")
         else:
@@ -263,7 +224,9 @@ def check_files():
     required_dirs = {
         "utils": "工具函数目录",
         "environment": "环境配置目录",
-        "log": "训练日志目录",
+        "log": "日志输出目录",
+        "log/training": "训练输出子目录",
+        "log/evaluation": "评估报告子目录",
         "model-out": "模型输出目录",
     }
     
@@ -295,27 +258,12 @@ def check_code_syntax():
             True: 所有文件语法正确
             False: 存在语法错误
 
-    输出示例：
-        ✓ 代码语法检查...
-        ✅ model.py            正常
-        ✅ mydataset.py        正常
-        ✅ train.py            正常
-        ✅ test.py             正常
-        ✅ utils.py            正常
-        ✅ predict.py          正常
-
-    使用示例（Example）:
-        >>> from verify_setup import check_code_syntax
-        >>> check_code_syntax()
-        True
-
     注意事项（Note）:
         - py_compile只检查语法，不检测运行时错误
         - 语法错误会显示具体的行号和错误信息
         - 编译失败的文件名和详细信息会一并输出
     """
     import py_compile
-    import io
     
     print("\n✓ 代码语法检查...")
 
@@ -327,6 +275,8 @@ def check_code_syntax():
         "test.py",
         "utils/utils.py",
         "utils/predict.py",
+        "utils/report.py",
+        "utils/draw.py",
         "environment/device_config.py",
         "environment/device_utils.py",
         "environment/install_pytorch.py",
@@ -377,17 +327,6 @@ def check_model_init():
         3. ✅ 前向传播正常
         4. ✅ 输出形状正确
 
-    输出示例：
-        🧠 检查模型初始化...
-        ✅ 模型初始化成功
-        ✅ 总参数量: 83.53M
-        ✅ 前向传播正常，输出形状: torch.Size([2, 101])
-
-    使用示例（Example）:
-        >>> from verify_setup import check_model_init
-        >>> check_model_init()
-        True
-
     注意事项（Note）:
         - 使用torch.no_grad()禁用梯度计算，加快测试
         - 使用虚拟数据测试，不需要真实的图片
@@ -413,7 +352,7 @@ def check_model_init():
         total_params = sum(p.numel() for p in model.parameters())
 
         # 除以1e6转换为百万单位，便于阅读
-        # 例如：83530000 → 83.53M
+        # 例如：15897509 → 15.90M
         print(f"✅ 总参数量: {total_params/1e6:.2f}M")
 
         # ============ 第四步：测试前向传播 ============
@@ -456,11 +395,6 @@ def main():
         6. 汇总报告
         7. 建议和后续步骤
 
-    使用示例（Example）:
-        >>> python verify_setup.py
-        # 运行完整检查
-        # 返回exit code 0（成功）或1（失败）
-
     注意事项（Note）:
         - 该函数不返回任何有意义的值，应通过sys.exit()传递退出码
         - 所有检查都会执行，不会因某个检查失败而停止
@@ -485,13 +419,17 @@ def main():
     tool_deps_ok = all([
         check_module("tqdm", "tqdm"),
         check_module("PIL", "Pillow"),
+        check_module("numpy", "NumPy"),
     ])
     
-    print("\n  可选依赖:")
-    check_module("numpy", "NumPy")
+    print("\n  可视化依赖:")
+    viz_deps_ok = all([
+        check_module("matplotlib", "matplotlib"),
+        check_module("seaborn", "seaborn"),
+    ])
 
     # 如果依赖包不完整，给出安装建议
-    if not (deps_ok and tool_deps_ok):
+    if not (deps_ok and tool_deps_ok and viz_deps_ok):
         print("\n⚠️  部分依赖缺失，请运行以下命令安装:")
         print("   pip install -r requirements.txt")
     
@@ -553,6 +491,7 @@ def main():
     # 根据结果显示✅（正常）或❌（有缺失）
     print(f"  核心依赖:   {'✅ 正常' if deps_ok else '❌ 有缺失'}")
     print(f"  工具依赖:   {'✅ 正常' if tool_deps_ok else '⚠️  警告'}")
+    print(f"  可视化依赖: {'✅ 正常' if viz_deps_ok else '⚠️  警告'}")
     print(f"  CUDA兼容:   {'✅ 兼容' if cuda_ok else '⚠️  警告'}")
     print(f"  项目文件:   {'✅ 正常' if files_ok else '❌ 有缺失'}")
     print(f"  代码语法:   {'✅ 正常' if syntax_ok else '❌ 有错误'}")
@@ -563,7 +502,7 @@ def main():
     # 根据所有检查结果显示不同的建议信息
     print("\n")
     
-    all_critical_ok = deps_ok and files_ok and syntax_ok and model_ok
+    all_critical_ok = deps_ok and tool_deps_ok and viz_deps_ok and files_ok and syntax_ok and model_ok
     
     if all_critical_ok:
         # 所有关键检查都通过，可以开始训练
@@ -575,6 +514,10 @@ def main():
         print("    python test.py --device auto")
         print("\n  【推理预测】")
         print("    python utils/predict.py --device auto")
+        print("\n  【训练曲线可视化】")
+        print("    python utils/draw.py")
+        print("\n  【评估报告生成】")
+        print("    python utils/report.py --device auto")
         print("\n  【环境验证】")
         print("    python environment/verify_setup.py")
         print("\n" + "=" * 60)
@@ -584,28 +527,45 @@ def main():
         print("❌ 环境检查未完全通过，请按以下步骤修复：")
         print("=" * 60)
         
+        step = 0
+        
         if not deps_ok:
-            print("\n  【第一步】安装核心依赖")
+            step += 1
+            print(f"\n  【第{step}步】安装核心依赖")
+            print("    pip install torch torchvision")
+        
+        if not tool_deps_ok:
+            step += 1
+            print(f"\n  【第{step}步】安装工具依赖")
+            print("    pip install tqdm pillow numpy")
+        
+        if not viz_deps_ok:
+            step += 1
+            print(f"\n  【第{step}步】安装可视化依赖")
+            print("    pip install matplotlib seaborn")
+        
+        if not deps_ok or not tool_deps_ok or not viz_deps_ok:
+            step += 1
+            print(f"\n  【第{step}步】或一键安装全部依赖")
             print("    pip install -r requirements.txt")
         
-        if not (deps_ok and tool_deps_ok):
-            print("\n  【第二步】安装所有依赖")
-            print("    pip install torch torchvision tqdm pillow numpy")
-        
         if not files_ok:
-            print("\n  【第三步】检查项目文件")
+            step += 1
+            print(f"\n  【第{step}步】检查项目文件")
             print("    - 确保所有文件都存在")
-            print("    - 检查data/目录结构")
+            print("    - 检查 data/ 目录结构")
         
         if not syntax_ok:
-            print("\n  【第四步】修复语法错误")
+            step += 1
+            print(f"\n  【第{step}步】修复语法错误")
             print("    - 查看上方错误信息")
-            print("    - 修复相应Python文件的语法")
+            print("    - 修复相应 Python 文件的语法")
         
         if not model_ok:
-            print("\n  【第五步】检查模型初始化")
-            print("    - 确保model.py能正常导入")
-            print("    - 检查ResNeXt类定义")
+            step += 1
+            print(f"\n  【第{step}步】检查模型初始化")
+            print("    - 确保 model.py 能正常导入")
+            print("    - 检查 ResNeXt 类定义")
         
         print("\n" + "=" * 60)
         return 1
@@ -619,32 +579,12 @@ if __name__ == "__main__":
     这是Python的标准做法，确保模块在被其他脚本导入时不会自动执行。
 
     使用方式：
-        $ python verify_setup.py
+        $ python environment/verify_setup.py
 
     程序流程：
         1. 运行main()函数执行所有检查
         2. main()返回exit code（0表示成功，1表示失败）
         3. sys.exit()将此码传递给操作系统
-
-    典型输出：
-        ============================================================
-        ResNeXt 项目环境验证工具
-        ============================================================
-        
-        📦 检查必需的 Python 包...
-        ✅ PyTorch              2.1.0
-        ✅ torchvision          0.16.0
-        ...
-        
-        验证总结:
-          依赖包:   ✅ 正常
-          项目文件: ✅ 正常
-          代码语法: ✅ 正常
-          模型初始: ✅ 正常
-        ============================================================
-        
-        ✅ 环境检查通过！可以开始训练:
-           python train.py
 
     出错情况：
         若任何检查失败，会输出❌符号和错误信息。

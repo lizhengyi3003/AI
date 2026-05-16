@@ -16,22 +16,6 @@
     - get_device_choice(): 交互式设备选择或命令行指定
     - auto_install_pytorch(): 自动安装对应版本的PyTorch
 
-使用方法：
-    # 检测系统CUDA版本
-    cuda_version = detect_cuda_version()
-    print(f"系统CUDA版本: {cuda_version}")
-    
-    # 检查PyTorch安装状态
-    pytorch_info = check_pytorch_installed()
-    if pytorch_info['installed']:
-        print(f"PyTorch已安装: {pytorch_info['cuda_version']}")
-    
-    # 交互式选择设备
-    device_choice = get_device_choice()
-    
-    # 自动安装对应版本的PyTorch
-    auto_install_pytorch(device_choice)
-
 注意事项：
     - 需要 pip、torch 等命令行工具
     - Windows 用户需要安装 nvidia-smi（NVIDIA 驱动包含）
@@ -66,14 +50,6 @@ def detect_cuda_version() -> Optional[str]:
     Raises:
         subprocess.CalledProcessError: 命令执行异常（已捕获处理）
         FileNotFoundError: nvidia-smi 不在 PATH 中（已捕获处理）
-    
-    Example:
-        >>> cuda_version = detect_cuda_version()
-        >>> if cuda_version:
-        ...     print(f"✅ 检测到 CUDA: {cuda_version}")
-        ... else:
-        ...     print("❌ 未检测到 NVIDIA CUDA（CPU 模式）")
-        ✅ 检测到 CUDA: 12.1
     
     Note:
         - Windows：通常在 C:\\Program Files\\NVIDIA Corporation\\NVIDIA
@@ -141,14 +117,6 @@ def get_pytorch_cuda_version() -> Optional[str]:
     Raises:
         ImportError: PyTorch 未安装（已捕获处理）
     
-    Example:
-        >>> pytorch_cuda = get_pytorch_cuda_version()
-        >>> if pytorch_cuda:
-        ...     print(f"PyTorch CUDA版本: {pytorch_cuda}")
-        ... else:
-        ...     print("PyTorch CPU版本或未安装")
-        PyTorch CUDA版本: 12.1
-    
     Note:
         - 该函数只能检测已安装的PyTorch
         - 如果PyTorch是CPU版本（无CUDA），返回None
@@ -192,16 +160,6 @@ def check_pytorch_installed() -> Dict[str, Any]:
             - 'cuda_available' (bool): CUDA是否可用（已安装时）
             - 'device' (str): 设备类型，'cuda' 或 'cpu'（已安装时）
             - 'error' (str): 错误信息（未安装时）
-    
-    Example:
-        >>> info = check_pytorch_installed()
-        >>> if info['installed']:
-        ...     print(f"✅ PyTorch {info['version']}")
-        ...     print(f"   CUDA: {info['cuda_version']}")
-        ...     print(f"   可用: {info['device']}")
-        ✅ PyTorch 2.0.1
-           CUDA: 12.1
-           可用: cuda
     
     Note:
         - 该函数不修改任何系统设置
@@ -263,14 +221,6 @@ def validate_cuda_match() -> Dict[str, Any]:
         - 'match' (bool): 版本是否匹配
         - 'warning' (str): 警告信息（不匹配时）
         - 'suggestion' (str): 修复建议（有问题时）
-    
-    Example:
-        >>> result = validate_cuda_match()
-        >>> if not result['match']:
-        ...     print("⚠️  " + result['warning'])
-        ...     print("💡 " + result['suggestion'])
-        ⚠️  系统CUDA版本(12.1)与PyTorch CUDA版本(11.8)不兼容！
-        💡 建议运行: python install_pytorch.py
     
     Note:
         - PyTorch CPU版本不涉及CUDA匹配问题
@@ -350,17 +300,6 @@ def get_device_choice(force_device: Optional[str] = None) -> Tuple[str, Optional
             - 元组形式：(device_choice, cuda_version)
             - device_choice: 'cpu' 或 'cuda11.8' 或 'cuda12.1' 等
             - cuda_version: CUDA版本号或None（CPU模式时为None）
-    
-    Example:
-        >>> # 交互式选择
-        >>> device, cuda_ver = get_device_choice()
-        >>> print(f"选择: {device}, CUDA: {cuda_ver}")
-        选择: cuda12.1, CUDA: 12.1
-        
-        >>> # 命令行指定
-        >>> device, cuda_ver = get_device_choice('gpu')
-        >>> print(f"选择: {device}")
-        选择: cuda12.1
     
     Note:
         - 自动模式会优先选择GPU（如可用）
@@ -462,12 +401,6 @@ def auto_install_pytorch(device_choice: str, cuda_version: Optional[str] = None)
     
     Raises:
         subprocess.CalledProcessError: pip命令执行失败（已捕获处理）
-    
-    Example:
-        >>> success = auto_install_pytorch("cuda12.1")
-        >>> if success:
-        ...     print("✅ PyTorch安装成功")
-        ✅ PyTorch安装成功
     
     Note:
         - 需要网络连接以下载安装包（通常1-5GB）

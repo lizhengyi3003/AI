@@ -28,7 +28,7 @@ pip install -r requirements.txt
 #### ② GPU 版本（需要 NVIDIA 显卡）
 **方案 A - 自动安装（推荐）**
 ```bash
-python install_pytorch.py
+python environment/install_pytorch.py
 ```
 交互式选择设备，自动匹配CUDA版本并安装。
 
@@ -66,10 +66,22 @@ AI/
 │   ├── install_pytorch.py  # PyTorch一键安装脚本
 │   └── verify_setup.py     # 环境和项目验证工具
 ├── utils/                  # 工具函数模块
-│   ├── utils.py            # 推理工具函数
-│   └── predict.py          # 推理预测脚本
-├── log/                    # 训练日志目录
-│   └── train_log.txt       # 每个epoch的loss和acc记录
+│   ├── utils.py            # 通用工具函数
+│   ├── predict.py          # 推理预测脚本
+│   ├── report.py           # 模型评估报告生成
+│   └── draw.py             # 训练曲线可视化
+├── log/                    # 日志和输出目录
+│   ├── training/           # 训练相关输出
+│   │   ├── train_log.txt   # 每个epoch的loss和acc记录
+│   │   ├── loss_curve.png  # Loss曲线
+│   │   ├── accuracy_curve.png  # Accuracy曲线
+│   │   └── combined_curve.png  # 合并双轴图
+│   └── evaluation/         # 评估报告输出
+│       ├── test_accuracy_summary.txt  # 测试准确率汇总
+│       ├── prediction_examples.png    # 预测样例可视化
+│       ├── confusion_matrix.png       # 混淆矩阵热力图
+│       ├── per_class_accuracy.png     # 每类准确率柱状图
+│       └── learning_rate_schedule.png # 学习率变化曲线
 ├── model-out/              # 保存的模型权重
 │   ├── best.pth            # 最佳验证准确率对应的权重
 │   └── last.pth            # 最后一个epoch的权重
@@ -124,22 +136,14 @@ python test.py --device gpu
 python utils/predict.py [--device {auto|gpu|cpu}]
 ```
 
-**推理模式**（运行后交互输入）：
-- 单张图片：输入图片路径 `path/to/image.jpg`
-- 批量预测：输入 `batch path/to/directory/`
-- 获取帮助：输入 `help`
-- 退出程序：输入 `quit`
+运行后进入交互模式，支持以下命令：
 
-**示例**：
-```bash
-python utils/predict.py --device auto
-# 进入交互模式，输入图片路径
-> /data/test/cat.jpg
-预测: cat, 置信度: 94.23%
-
-> batch ./test_images/
-✅ 成功预测: 5 张图片
-```
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| 图片路径 | 预测单张图片 | `test.jpg` 或 `./data/test/cat.png` |
+| `batch <目录>` | 批量预测目录下所有图片 | `batch ./test_images/` |
+| `help` | 显示命令帮助 | `help` |
+| `quit` | 退出程序 | `quit` |
 
 ---
 
@@ -221,7 +225,7 @@ self.conv3 = nn.Conv2d(mid_ch, out_ch, 1, bias=False)
 
 1. **model-out/best.pth** - 验证集准确率最高的模型权重
 2. **model-out/last.pth** - 最后一个epoch的模型权重
-3. **train_log.txt** - 每个epoch的训练和验证指标
+3. **train_log.txt** - 每个epoch的训练和验证指标（位于 `log/training/`）
 
 **train_log.txt 示例**：
 ```
@@ -237,6 +241,125 @@ Epoch 80: Train Loss: 0.3421, Acc: 0.8927 | Val Loss: 0.5234, Acc: 0.8234
 - **最佳验证集准确率**：通常在 75%-90% 之间（取决于数据和硬件）
 - **测试集准确率**：通常比验证集准确率略低 2-5%
 - **训练时间**：约 4-8 小时（单卡 GPU）或 20-30 小时（CPU）
+
+### 训练过程可视化
+
+训练完成后，可以使用 `utils/draw.py` 脚本来生成训练过程的可视化图表：
+
+```bash
+python utils/draw.py
+```
+
+该脚本会自动从 `log/training/train_log.txt` 中读取训练数据，并生成以下三个 PNG 图表：
+
+1. **log/training/loss_curve.png** - Loss 曲线（训练集 vs 验证集）
+2. **log/training/accuracy_curve.png** - Accuracy 曲线（训练集 vs 验证集）
+3. **log/training/combined_curve.png** - 合并双轴图（Loss 和 Accuracy）
+
+**图表说明**：
+
+| 图表名称 | 描述 | Y 轴 |
+|---------|------|------|
+| Loss 曲线 | 训练和验证的损失函数值 | Loss 值 |
+| Accuracy 曲线 | 训练和验证的分类准确率 | 准确率 (0-1) |
+| 合并双轴图 | 在一张图上展示 Loss 和 Accuracy | 左轴：Loss，右轴：准确率 |
+
+**依赖包**：
+```bash
+pip install matplotlib  # 如果未安装
+```
+
+**输出示例**：
+```
+✅ 日志解析成功
+   总 Epoch 数: 80
+   最终训练损失: 0.007100
+   最终验证损失: 0.854900
+   最终训练准确率: 0.9988
+   最终验证准确率: 0.8285
+✅ Loss 曲线已保存: log/training/loss_curve.png
+✅ Accuracy 曲线已保存: log/training/accuracy_curve.png
+✅ 合并双轴图已保存: log/training/combined_curve.png
+```
+
+### 模型评估报告
+
+训练完成后，可以使用 `utils/report.py` 脚本生成完整的模型评估报告：
+
+```bash
+python utils/report.py [--device {auto|gpu|cpu}]
+```
+
+该脚本会在测试集上评估训练好的模型，并生成以下报告文件：
+
+#### 生成的文件
+
+| 文件名 | 说明 | 用途 |
+|--------|------|------|
+| `log/evaluation/test_accuracy_summary.txt` | 测试准确率汇总报告 | 查看整体性能统计 |
+| `log/evaluation/prediction_examples.png` | 预测样例可视化（9宫格布局）| 直观查看模型预测效果 |
+| `log/evaluation/confusion_matrix.png` | 混淆矩阵热力图 | 分析类别间的混淆情况 |
+| `log/evaluation/per_class_accuracy.png` | 每类准确率柱状图 | 识别性能弱的类别 |
+| `log/evaluation/learning_rate_schedule.png` | 学习率变化曲线 | 理解优化过程 |
+
+#### 报告内容详解
+
+**1. 测试准确率汇总 (test_accuracy_summary.txt)**
+- 测试样本总数、类别数、数据集信息
+- 测试集准确率、正确和错误预测数
+- 性能评价（优秀/良好/中等/需改进）
+
+**示例输出**：
+```
+【测试结果】
+  测试准确率: 0.8228
+  百分比: 82.28%
+  正确预测: 1124
+  错误预测: 242
+
+【性能评价】
+  ✓ 良好 - 模型在测试集上有不错的表现
+```
+
+**2. 预测样例可视化 (prediction_examples.png)**
+- 显示 9 张随机抽取的测试图片
+- 并排显示真实标签和预测标签
+- 正确预测用绿色框显示，错误预测用红色框显示
+
+**3. 混淆矩阵热力图 (confusion_matrix.png)**
+- 显示所有类别间的预测分布
+- 行表示真实标签，列表示预测标签
+- 颜色深度表示样本数量
+- 类别过多时仅显示前 50 个
+
+**4. 每类准确率柱状图 (per_class_accuracy.png)**
+- 按准确率从高到低排序显示各类别
+- 绿色：高准确率 (≥85%)，橙色：中准确率 (70-85%)，红色：低准确率 (<70%)
+- 帮助识别需要改进的类别
+
+**5. 学习率变化曲线 (learning_rate_schedule.png)**
+- 展示整个训练过程中学习率的变化
+- 使用 CosineAnnealingLR 调度器
+- 从初始 0.01 逐渐衰减到接近 0
+
+#### 使用示例
+
+```bash
+# 自动选择设备（优先 GPU）
+python utils/report.py
+
+# 强制使用 CPU
+python utils/report.py --device cpu
+
+# 强制使用 GPU
+python utils/report.py --device gpu
+```
+
+#### 依赖包
+
+```bash
+pip install matplotlib seaborn  # 如果未安装
+```
 
 ## 常见问题与解决方案
 
@@ -309,7 +432,7 @@ python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_
 **解决方案**：
 1. 确保解压数据集到 data/ 目录
 2. 检查目录结构是否为 data/train/class_name/image.jpg
-3. 运行 `python verify_setup.py` 检查
+3. 运行 `python environment/verify_setup.py` 检查
 
 ### Q6: 模型权重加载失败
 
@@ -460,46 +583,122 @@ Test Accuracy: 0.8234
 
 #### 交互式预测模式（推荐）
 
-进入交互模式，逐个输入图片进行预测：
+最方便的使用方式是进入交互模式，逐个输入图片或目录进行预测：
 ```bash
-python utils/predict.py
+python utils/predict.py --device auto
 ```
 
-**交互命令说明**：
-```
+**支持的交互命令**：
+
+1. **单张图片预测** - 直接输入图片路径
+   ```
+   > test.jpg                      # 本目录下的图片
+   > ./data/test/cat.png           # 相对路径
+   > /home/user/images/dog.jpg     # 绝对路径
+   ```
+
+2. **批量预测** - 使用 `batch` 命令批量预测目录
+   ```
+   > batch ./test_images/          # 预测该目录下所有图片
+   > batch /data/predict/          # 递归查找子目录中的图片
+   ```
+   批量预测会递归扫描子目录，可选择保存结果到文件。
+
+3. **获取帮助** - 查看命令说明
+   ```
+   > help                          # 显示详细的命令使用说明
+   ```
+
+4. **退出程序** - 离开交互模式
+   ```
+   > quit                          # 结束预测，退出程序
+   ```
+
+**完整交互示例**：
+```bash
+$ python utils/predict.py
+
+📱 使用设备: cpu
+⏳ 正在加载模型...
+⏳ 正在加载类别...
+
 🎯 进入交互预测模式
-输入图片路径 (输入 'help' 获取帮助, 'quit' 退出):
-> test.jpg                    # 单张预测
-预测: cat, 置信度: 94.23%
+============================================================
+命令说明:
+  1. 单张预测：输入图片路径
+     例如: test.jpg 或 ./data/test.jpg
+  2. 批量预测：输入 'batch' + 目录路径
+     例如: batch ./test_images/
+  3. 获取帮助：输入 'help'
+  4. 退出程序：输入 'quit'
+============================================================
 
-> batch ./test_images/        # 批量预测目录
-✅ 成功预测: 5 张图片
+输入命令 (图片路径/batch 目录/help/quit): cat.jpg
+============================================================
+图片路径: cat.jpg
+预测类别: cat
+置信度: 94.23%
 
-> help                         # 显示帮助
-> quit                         # 退出程序
+Top5 预测:
+  1. cat: 94.23%
+  2. tiger: 3.45%
+  3. leopard: 1.89%
+============================================================
+
+输入命令 (图片路径/batch 目录/help/quit): batch ./samples/
+📁 找到 3 张图片
+🔍 开始批量预测...
+预测进度: 100%|████| 3/3 [00:01<00:00, 3.00it/s]
+============================================================
+📊 批量预测完成
+============================================================
+✅ 成功预测: 3 张图片
+============================================================
+
+输入命令 (图片路径/batch 目录/help/quit): quit
+👋 再见!
 ```
 
-#### 单张预测代码使用
+#### 代码方式调用预测
+
+如果希望在自己的代码中使用预测功能，可以导入 `predict_single()` 函数：
+
+```python
+from utils.predict import predict_single
+
+# 简单使用：自动加载模型
+result = predict_single("test.jpg")
+print(f"预测: {result['pred_class']}")
+print(f"置信度: {result['confidence']:.2%}")
+print(f"Top5: {result['top5_classes']}")
+```
+
+或使用底层的工具函数进行更复杂的操作：
 
 ```python
 import torch
 from model import ResNeXt
-from utils.utils import predict_single_image, load_model_weights, get_class_names, print_prediction_result
+from utils.utils import (
+    predict_single_image, 
+    load_model_weights, 
+    get_class_names, 
+    print_prediction_result
+)
 
-# 配置
+# 初始化设备和模型
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# 加载模型和类别
-classes = get_class_names("data")
-model = ResNeXt(num_classes=len(classes)).to(device)
+model = ResNeXt(num_classes=101).to(device)
 model = load_model_weights(model, "model-out/best.pth", device)
 model.eval()
 
-# 单张预测
+# 加载类别
+classes = get_class_names("data")
+
+# 预测单张图片
 result = predict_single_image("test.jpg", model, device, classes)
 print_prediction_result(result)
 
-# 获取预测结果
+# 获取预测结果数据
 print(f"预测类别: {result['pred_class']}")
 print(f"置信度: {result['confidence']:.2%}")
 print(f"Top5: {list(zip(result['top5_classes'], result['top5_scores']))}")
@@ -523,22 +722,35 @@ Top5 预测:
 
 #### 批量预测代码使用
 
+也可以在代码中直接调用 `predict_batch()` 进行批量预测：
+
 ```python
 from utils.predict import predict_batch
 
 # 批量预测指定目录下的所有图片
-results = predict_batch("./test_images/", output_file="predictions.txt")
+results = predict_batch(
+    "./test_images/",                    # 输入目录
+    output_file="predictions.txt"        # 可选：保存结果到文件
+)
 
-# 查看结果
+# 处理预测结果
 for result in results:
     print(f"{result['image_path']}: {result['pred_class']} ({result['confidence']:.2%})")
+
+# 统计分析
+if results:
+    avg_confidence = sum(r['confidence'] for r in results) / len(results)
+    print(f"\n平均置信度: {avg_confidence:.2%}")
 ```
 
-**输出文件 predictions.txt 格式**：
+如果指定了 `output_file` 参数，会生成包含所有预测结果的 CSV 格式文件：
+
+**predictions.txt 格式示例**：
 ```
 图片路径,预测类别,置信度,Top5预测
 ./test_images/cat.jpg,cat,94.23%,cat(94.23%); tiger(3.45%); leopard(1.89%); lion(0.32%); cheetah(0.11%)
-./test_images/dog.png,dog,88.56%,dog(88.56%); wolf(7.89%); fox(2.34%); ...
+./test_images/dog.png,dog,88.56%,dog(88.56%); wolf(7.89%); fox(2.34%); coyote(1.12%); dingo(0.09%)
+./test_images/bird.jpg,bird,91.34%,bird(91.34%); eagle(5.23%); hawk(2.10%); sparrow(1.15%); parrot(0.18%)
 ```
 
 #### 模型推理的工具函数
@@ -551,7 +763,7 @@ for result in results:
 - `get_class_index_map()`: 获取类别名到索引的映射
 
 ```python
-from utils import (
+from utils.utils import (
     load_model_weights,
     get_class_names,
     predict_single_image,
@@ -610,7 +822,7 @@ lr = 0.01             # 初始学习率
 使用 `verify_setup.py` 检查环境和项目配置是否正确：
 
 ```bash
-python verify_setup.py
+python environment/verify_setup.py
 ```
 
 **检查项目**：
@@ -627,11 +839,19 @@ ResNeXt 项目环境验证工具
 ============================================================
 
 📦 检查必需的 Python 包...
-✅ PyTorch              2.1.0
-✅ torchvision          0.16.0
-✅ tqdm                 4.65.0
-✅ numpy                1.24.0
-✅ Pillow               10.0.0
+
+  核心依赖:
+✅ PyTorch              2.12.0+cpu (CPU only)
+✅ torchvision          0.27.0+cpu
+
+  工具依赖:
+✅ tqdm                 4.67.3
+✅ Pillow               12.2.0
+✅ NumPy                2.3.5
+
+  可视化依赖:
+✅ matplotlib           3.10.9
+✅ seaborn              0.13.2
 
 📂 检查项目文件...
 ✅ model.py            模型定义
@@ -652,7 +872,7 @@ ResNeXt 项目环境验证工具
 
 🧠 检查模型初始化...
 ✅ 模型初始化成功
-✅ 总参数量: 83.53M
+✅ 总参数量: 15.90M
 ✅ 前向传播正常，输出形状: torch.Size([2, 101])
 
 ============================================================
@@ -663,8 +883,26 @@ ResNeXt 项目环境验证工具
   模型初始: ✅ 正常
 ============================================================
 
-✅ 环境检查通过！可以开始训练:
-   python train.py
+✅ 环境检查通过！可以开始以下工作：
+============================================================
+
+  【训练】
+    python train.py --device auto
+
+  【测试】
+    python test.py --device auto
+
+  【推理预测】
+    python utils/predict.py --device auto
+
+  【训练曲线可视化】
+    python utils/draw.py
+
+  【评估报告生成】
+    python utils/report.py --device auto
+
+  【环境验证】
+    python environment/verify_setup.py
 ```
 
 **使用场景**：
@@ -672,25 +910,6 @@ ResNeXt 项目环境验证工具
 - 修改依赖后检查兼容性
 - 出现异常时诊断问题根源
 - CI/CD 管道中自动验证
-
----
-
-### 6. 超参数调整
-
-在 `train.py` 中修改以下参数进行实验：
-```python
-batch_size = 32       # 批大小（GPU 显存不足可改为 16）
-epochs = 80           # 训练 epoch 数
-lr = 0.01             # 初始学习率
-```
-
-**常见调整**：
-| 参数 | 当前值 | 调整建议 |
-|------|--------|----------|
-| `batch_size` | 32 | 显存充足可改为 64；显存不足改为 16 |
-| `epochs` | 80 | 快速测试改为 10；长期训练改为 150 |
-| `lr` | 0.01 | 收敛缓慢改为 0.02；震荡改为 0.005 |
-| `weight_decay` | 1e-4 | 过拟合改为 5e-4；欠拟合改为 1e-5 |
 
 ---
 

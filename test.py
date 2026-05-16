@@ -10,16 +10,23 @@
 功能：
     - test(): 在测试数据集上评估模型性能，计算准确率
 
-使用方法：
-    $ python test.py
-    # 输出模型在测试集上的准确率
-    # 例如：Test Accuracy: 0.8567
-
 注意事项：
     - 需要提前运行train.py生成model-out/best.pth权重文件
     - 测试时模型处于eval模式，不更新BatchNorm统计信息
     - 使用torch.no_grad()禁用梯度计算以加速推理
 """
+
+import sys
+import os
+import argparse
+
+# ============ 调整 sys.path 以支持直接运行脚本 ============
+# 当直接从项目根目录运行时，Python 会自动添加当前目录到 sys.path
+# 这里确保项目根目录优先级最高，便于模块导入
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir in sys.path:
+    sys.path.remove(_current_dir)
+sys.path.insert(0, _current_dir)
 
 import torch
 import argparse
