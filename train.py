@@ -15,7 +15,7 @@
 
 模块功能：
     - train(): 执行ResNeXt模型的完整训练过程
-    
+
 注意事项：
     - 确保data/路径下有train/、val/、test/三个子目录，各包含类别子文件夹
     - GPU可用时自动使用GPU训练（速度快10-50倍）
@@ -167,11 +167,10 @@ def train():
     # 创建目录用于保存训练好的模型权重和训练日志
     # exist_ok=True: 如果目录已存在则不报错
     os.makedirs("model-out", exist_ok=True)
-    os.makedirs("log", exist_ok=True)
+    os.makedirs(os.path.join("log", "training"), exist_ok=True)
     
     # 打开文件用于记录每个epoch的训练日志
-    # 模式"w": 写模式，如果文件存在则覆盖
-    log_path = os.path.join("log", "train_log.txt")
+    log_path = os.path.join("log", "training", "train_log.txt")
     log_file = open(log_path, "w")
     
     # ============ 第九步：初始化最佳准确率跟踪 ============
@@ -377,7 +376,7 @@ def train():
     print(f"🏆 最佳验证准确率: {best_acc:.4f} ({best_acc*100:.2f}%)")
     print(f"💾 最佳模型已保存: model-out/best.pth")
     print(f"💾 最后模型已保存: model-out/last.pth")
-    print(f"📝 训练日志已保存: train_log.txt")
+    print(f"📝 训练日志已保存: log/training/train_log.txt")
     print("="*60)
 
 

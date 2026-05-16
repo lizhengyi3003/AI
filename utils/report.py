@@ -11,11 +11,11 @@
     $ python utils/report.py [--device {auto|gpu|cpu}]
     
 输出文件：
-    - log/test_accuracy_summary.txt - 测试准确率统计
-    - log/prediction_examples.png - 预测样例可视化（9宫格布局）
-    - log/confusion_matrix.png - 混淆矩阵热力图
-    - log/per_class_accuracy.png - 每类准确率柱状图
-    - log/learning_rate_schedule.png - 学习率变化曲线（如果可用）
+    - log/evaluation/test_accuracy_summary.txt - 测试准确率统计
+    - log/evaluation/prediction_examples.png - 预测样例可视化（9宫格布局）
+    - log/evaluation/confusion_matrix.png - 混淆矩阵热力图
+    - log/evaluation/per_class_accuracy.png - 每类准确率柱状图
+    - log/evaluation/learning_rate_schedule.png - 学习率变化曲线（如果可用）
 """
 
 import sys
@@ -142,7 +142,7 @@ def test_and_analyze(device: torch.device, classes: List[str]) -> Tuple[float, D
 
 
 def save_test_accuracy_summary(accuracy: float, num_classes: int, num_test_samples: int,
-                               output_file: str = "log/test_accuracy_summary.txt") -> None:
+                               output_file: str = "log/evaluation/test_accuracy_summary.txt") -> None:
     """保存测试准确率汇总。
     
     Args:
@@ -196,7 +196,7 @@ def save_test_accuracy_summary(accuracy: float, num_classes: int, num_test_sampl
 
 def visualize_prediction_examples(classes: List[str], test_loader: torch.utils.data.DataLoader,  # type: ignore
                                  model: torch.nn.Module, device: torch.device,
-                                 num_samples: int = 9, output_file: str = "log/prediction_examples.png") -> None:
+                                 num_samples: int = 9, output_file: str = "log/evaluation/prediction_examples.png") -> None:
     """生成预测样例可视化（显示6-9张图片及其真实标签和预测标签）。
     
     Args:
@@ -275,7 +275,7 @@ def visualize_prediction_examples(classes: List[str], test_loader: torch.utils.d
 
 
 def generate_confusion_matrix(all_preds: List[int], all_labels: List[int], classes: List[str],
-                             output_file: str = "log/confusion_matrix.png", max_classes: int = 50) -> None:
+                             output_file: str = "log/evaluation/confusion_matrix.png", max_classes: int = 50) -> None:
     """生成混淆矩阵热力图。
     
     Args:
@@ -325,7 +325,7 @@ def generate_confusion_matrix(all_preds: List[int], all_labels: List[int], class
 
 
 def generate_per_class_accuracy(per_class_stats: Dict[int, Dict[str, int]], classes: List[str],
-                               output_file: str = "log/per_class_accuracy.png") -> None:
+                               output_file: str = "log/evaluation/per_class_accuracy.png") -> None:
     """生成每类准确率柱状图。
     
     Args:
@@ -396,7 +396,7 @@ def generate_per_class_accuracy(per_class_stats: Dict[int, Dict[str, int]], clas
     print(f"   Low accuracy (< 70%): {low_acc}")
 
 
-def generate_learning_rate_schedule(output_file: str = "log/learning_rate_schedule.png") -> None:
+def generate_learning_rate_schedule(output_file: str = "log/evaluation/learning_rate_schedule.png") -> None:
     """生成学习率变化曲线（从train.py代码推导出的CosineAnnealingLR）。
     
     Args:
@@ -475,6 +475,9 @@ def main() -> None:
     print("Generating evaluation report...")
     print("="*60)
     
+    # 确保输出目录存在
+    os.makedirs("log/evaluation", exist_ok=True)
+    
     # 1. 测试准确率汇总
     save_test_accuracy_summary(accuracy, len(classes), num_test_samples)
     
@@ -505,11 +508,11 @@ def main() -> None:
     print("✅ Report generation complete!")
     print("="*60)
     print("\nGenerated files:")
-    print("   • log/test_accuracy_summary.txt")
-    print("   • log/prediction_examples.png")
-    print("   • log/confusion_matrix.png")
-    print("   • log/per_class_accuracy.png")
-    print("   • log/learning_rate_schedule.png")
+    print("   • log/evaluation/test_accuracy_summary.txt")
+    print("   • log/evaluation/prediction_examples.png")
+    print("   • log/evaluation/confusion_matrix.png")
+    print("   • log/evaluation/per_class_accuracy.png")
+    print("   • log/evaluation/learning_rate_schedule.png")
     print("="*60 + "\n")
 
 

@@ -66,10 +66,22 @@ AI/
 │   ├── install_pytorch.py  # PyTorch一键安装脚本
 │   └── verify_setup.py     # 环境和项目验证工具
 ├── utils/                  # 工具函数模块
-│   ├── utils.py            # 推理工具函数
-│   └── predict.py          # 推理预测脚本
-├── log/                    # 训练日志目录
-│   └── train_log.txt       # 每个epoch的loss和acc记录
+│   ├── utils.py            # 通用工具函数
+│   ├── predict.py          # 推理预测脚本
+│   ├── report.py           # 模型评估报告生成
+│   └── draw.py             # 训练曲线可视化
+├── log/                    # 日志和输出目录
+│   ├── training/           # 训练相关输出
+│   │   ├── train_log.txt   # 每个epoch的loss和acc记录
+│   │   ├── loss_curve.png  # Loss曲线
+│   │   ├── accuracy_curve.png  # Accuracy曲线
+│   │   └── combined_curve.png  # 合并双轴图
+│   └── evaluation/         # 评估报告输出
+│       ├── test_accuracy_summary.txt  # 测试准确率汇总
+│       ├── prediction_examples.png    # 预测样例可视化
+│       ├── confusion_matrix.png       # 混淆矩阵热力图
+│       ├── per_class_accuracy.png     # 每类准确率柱状图
+│       └── learning_rate_schedule.png # 学习率变化曲线
 ├── model-out/              # 保存的模型权重
 │   ├── best.pth            # 最佳验证准确率对应的权重
 │   └── last.pth            # 最后一个epoch的权重
@@ -213,7 +225,7 @@ self.conv3 = nn.Conv2d(mid_ch, out_ch, 1, bias=False)
 
 1. **model-out/best.pth** - 验证集准确率最高的模型权重
 2. **model-out/last.pth** - 最后一个epoch的模型权重
-3. **train_log.txt** - 每个epoch的训练和验证指标
+3. **train_log.txt** - 每个epoch的训练和验证指标（位于 `log/training/`）
 
 **train_log.txt 示例**：
 ```
@@ -238,11 +250,11 @@ Epoch 80: Train Loss: 0.3421, Acc: 0.8927 | Val Loss: 0.5234, Acc: 0.8234
 python utils/draw.py
 ```
 
-该脚本会自动从 `train_log.txt` 中读取训练数据，并生成以下三个 PNG 图表：
+该脚本会自动从 `log/training/train_log.txt` 中读取训练数据，并生成以下三个 PNG 图表：
 
-1. **log/loss_curve.png** - Loss 曲线（训练集 vs 验证集）
-2. **log/accuracy_curve.png** - Accuracy 曲线（训练集 vs 验证集）
-3. **log/combined_curve.png** - 合并双轴图（Loss 和 Accuracy）
+1. **log/training/loss_curve.png** - Loss 曲线（训练集 vs 验证集）
+2. **log/training/accuracy_curve.png** - Accuracy 曲线（训练集 vs 验证集）
+3. **log/training/combined_curve.png** - 合并双轴图（Loss 和 Accuracy）
 
 **图表说明**：
 
@@ -265,9 +277,9 @@ pip install matplotlib  # 如果未安装
    最终验证损失: 0.854900
    最终训练准确率: 0.9988
    最终验证准确率: 0.8285
-✅ Loss 曲线已保存: log/loss_curve.png
-✅ Accuracy 曲线已保存: log/accuracy_curve.png
-✅ 合并双轴图已保存: log/combined_curve.png
+✅ Loss 曲线已保存: log/training/loss_curve.png
+✅ Accuracy 曲线已保存: log/training/accuracy_curve.png
+✅ 合并双轴图已保存: log/training/combined_curve.png
 ```
 
 ### 模型评估报告
@@ -284,11 +296,11 @@ python utils/report.py [--device {auto|gpu|cpu}]
 
 | 文件名 | 说明 | 用途 |
 |--------|------|------|
-| `log/test_accuracy_summary.txt` | 测试准确率汇总报告 | 查看整体性能统计 |
-| `log/prediction_examples.png` | 预测样例可视化（9宫格布局）| 直观查看模型预测效果 |
-| `log/confusion_matrix.png` | 混淆矩阵热力图 | 分析类别间的混淆情况 |
-| `log/per_class_accuracy.png` | 每类准确率柱状图 | 识别性能弱的类别 |
-| `log/learning_rate_schedule.png` | 学习率变化曲线 | 理解优化过程 |
+| `log/evaluation/test_accuracy_summary.txt` | 测试准确率汇总报告 | 查看整体性能统计 |
+| `log/evaluation/prediction_examples.png` | 预测样例可视化（9宫格布局）| 直观查看模型预测效果 |
+| `log/evaluation/confusion_matrix.png` | 混淆矩阵热力图 | 分析类别间的混淆情况 |
+| `log/evaluation/per_class_accuracy.png` | 每类准确率柱状图 | 识别性能弱的类别 |
+| `log/evaluation/learning_rate_schedule.png` | 学习率变化曲线 | 理解优化过程 |
 
 #### 报告内容详解
 

@@ -18,7 +18,7 @@
 
 使用方法：
     $ python utils/draw.py
-    # 会在 log/ 目录下生成三个图表文件
+    # 会在 log/training/ 目录下生成三个图表文件
 """
 
 import sys
@@ -47,7 +47,7 @@ rcParams['figure.dpi'] = 100
 rcParams['savefig.dpi'] = 150
 
 
-def parse_log(log_file: str = "log/train_log.txt") -> Dict[str, Any]:
+def parse_log(log_file: str = "log/training/train_log.txt") -> Dict[str, Any]:
     """从训练日志文件中提取数据。
     
     解析 train_log.txt 文件，提取每个 epoch 的训练和验证指标。
@@ -57,7 +57,7 @@ def parse_log(log_file: str = "log/train_log.txt") -> Dict[str, Any]:
         Epoch 2: Train Loss: 3.0880, Acc: 0.3322 | Val Loss: 2.8321, Acc: 0.3808
     
     Args:
-        log_file (str): 训练日志文件路径。默认为 "log/train_log.txt"
+        log_file (str): 训练日志文件路径。默认为 "log/training/train_log.txt"
     
     Returns:
         Dict[str, Any]: 包含以下键的字典：
@@ -121,14 +121,14 @@ def parse_log(log_file: str = "log/train_log.txt") -> Dict[str, Any]:
     return data
 
 
-def plot_loss(data: Dict[str, Any], output_file: str = "log/loss_curve.png") -> None:
+def plot_loss(data: Dict[str, Any], output_file: str = "log/training/loss_curve.png") -> None:
     """绘制 Loss 曲线图。
     
     绘制训练损失和验证损失随 epoch 变化的曲线。
     
     Args:
         data (Dict[str, Any]): 包含训练数据的字典（由 parse_log() 返回）
-        output_file (str): 输出图表文件路径。默认为 "log/loss_curve.png"
+        output_file (str): 输出图表文件路径。默认为 "log/training/loss_curve.png"
     
     Returns:
         None: 直接保存图表到文件
@@ -173,14 +173,14 @@ def plot_loss(data: Dict[str, Any], output_file: str = "log/loss_curve.png") -> 
     print(f"✅ Loss 曲线已保存: {output_file}")
 
 
-def plot_accuracy(data: Dict[str, Any], output_file: str = "log/accuracy_curve.png") -> None:
+def plot_accuracy(data: Dict[str, Any], output_file: str = "log/training/accuracy_curve.png") -> None:
     """绘制 Accuracy 曲线图。
     
     绘制训练准确率和验证准确率随 epoch 变化的曲线。
     
     Args:
         data (Dict[str, Any]): 包含训练数据的字典（由 parse_log() 返回）
-        output_file (str): 输出图表文件路径。默认为 "log/accuracy_curve.png"
+        output_file (str): 输出图表文件路径。默认为 "log/training/accuracy_curve.png"
     
     Returns:
         None: 直接保存图表到文件
@@ -228,7 +228,7 @@ def plot_accuracy(data: Dict[str, Any], output_file: str = "log/accuracy_curve.p
     print(f"✅ Accuracy 曲线已保存: {output_file}")
 
 
-def plot_combined(data: Dict[str, Any], output_file: str = "log/combined_curve.png") -> None:
+def plot_combined(data: Dict[str, Any], output_file: str = "log/training/combined_curve.png") -> None:
     """绘制合并双轴图表。
     
     在同一张图表中绘制 Loss 和 Accuracy，使用双 Y 轴分别显示。
@@ -236,7 +236,7 @@ def plot_combined(data: Dict[str, Any], output_file: str = "log/combined_curve.p
     
     Args:
         data (Dict[str, Any]): 包含训练数据的字典（由 parse_log() 返回）
-        output_file (str): 输出图表文件路径。默认为 "log/combined_curve.png"
+        output_file (str): 输出图表文件路径。默认为 "log/training/combined_curve.png"
     
     Returns:
         None: 直接保存图表到文件
@@ -316,24 +316,27 @@ def main():
         5. 输出统计信息
     
     Returns:
-        None: 直接保存图表到 log/ 目录
+        None: 直接保存图表到 log/training/ 目录
     
     Note:
-        - 所有图表都以 PNG 格式保存，分辨率为 300 DPI
-        - 日志文件路径：log/train_log.txt
+        - 所有图表都以 PNG 格式保存
+        - 日志文件路径：log/training/train_log.txt
         - 输出图表路径：
-            - log/loss_curve.png
-            - log/accuracy_curve.png
-            - log/combined_curve.png
+            - log/training/loss_curve.png
+            - log/training/accuracy_curve.png
+            - log/training/combined_curve.png
     """
     print("\n" + "="*60)
     print("📊 训练过程可视化")
     print("="*60)
     
     try:
+        # ============ 确保输出目录存在 ============
+        os.makedirs("log/training", exist_ok=True)
+        
         # ============ 第一步：解析日志文件 ============
         print("\n📖 正在读取训练日志...")
-        data = parse_log("log/train_log.txt")
+        data = parse_log("log/training/train_log.txt")
         
         # 输出数据统计
         print(f"\n✅ 日志解析成功")
@@ -359,14 +362,14 @@ def main():
         print("✅ 所有图表已成功生成！")
         print("="*60)
         print("\n📁 生成的文件：")
-        print("   • log/loss_curve.png - Loss 曲线")
-        print("   • log/accuracy_curve.png - Accuracy 曲线")
-        print("   • log/combined_curve.png - Loss + Accuracy 合并图")
+        print("   • log/training/loss_curve.png - Loss 曲线")
+        print("   • log/training/accuracy_curve.png - Accuracy 曲线")
+        print("   • log/training/combined_curve.png - Loss + Accuracy 合并图")
         print("\n")
     
     except FileNotFoundError as e:
         print(f"\n❌ 错误: {str(e)}")
-        print("   请确保已经运行过训练脚本，生成了 log/train_log.txt 文件")
+        print("   请确保已经运行过训练脚本，生成了 log/training/train_log.txt 文件")
         return
     
     except ValueError as e:
@@ -387,10 +390,10 @@ if __name__ == "__main__":
     
     使用方式：
         $ python utils/draw.py
-        # 会在 log/ 目录下生成三个 PNG 图表文件
+        # 会在 log/training/ 目录下生成三个 PNG 图表文件
     
     要求：
-        - 已运行过 train.py，生成了 log/train_log.txt
+        - 已运行过 train.py，生成了 log/training/train_log.txt
         - 已安装 matplotlib 库
     """
     main()
