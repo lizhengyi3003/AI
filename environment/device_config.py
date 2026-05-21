@@ -435,6 +435,7 @@ def auto_install_pytorch(device_choice: str, cuda_version: Optional[str] = None)
         cmd = [
             sys.executable, "-m", "pip", "install",
             "torch", "torchvision", "torchaudio",
+            "--force-reinstall",
             "--index-url", "https://download.pytorch.org/whl/cpu"
         ]
     elif device_choice.startswith('cuda'):
@@ -447,6 +448,7 @@ def auto_install_pytorch(device_choice: str, cuda_version: Optional[str] = None)
         cmd = [
             sys.executable, "-m", "pip", "install",
             "torch", "torchvision", "torchaudio",
+            "--force-reinstall",
             "--index-url", f"https://download.pytorch.org/whl/{cuda_code}"
         ]
     else:

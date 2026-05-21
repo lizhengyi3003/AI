@@ -220,3 +220,6 @@ __marimo__/
 # 训练库数据排除
 /data
 /model-out
+
+# 虚拟环境排除
+/ai-train
