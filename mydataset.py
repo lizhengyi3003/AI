@@ -88,7 +88,7 @@ def compute_sample_weights(dataset, class_weights):
     return torch.tensor(sample_weights, dtype=torch.float32)
 
 
-def get_dataloaders(data_root, batch_size=32, num_workers=2, use_weighted_sampler=True):
+def get_dataloaders(data_root, batch_size=32, num_workers=2, use_weighted_sampler=False):
     """创建训练、验证、测试数据加载器（DataLoader）。
     
     该函数从指定目录加载图像数据，应用不同的预处理策略：
@@ -136,52 +136,29 @@ def get_dataloaders(data_root, batch_size=32, num_workers=2, use_weighted_sample
         - 当 use_weighted_sampler=True 时，自动计算类别权重处理长尾分布
     """
     # ============ 训练集数据变换（Data Augmentation）============
-    # 目的：增加训练数据的多样性，防止模型过拟合
-    # 通过随机变换生成不同视角的相同对象，提高模型的泛化能力
+    # 目的：适度增加训练数据多样性，防止过拟合但不破坏细粒度特征
+    # 注意：对101类细粒度分类，过强增强会破坏类别区分性特征
     train_transform = transforms.Compose([
         # 随机缩放裁剪：随机比例裁剪后缩放到224×224
-        # scale=(0.5,1.0) 表示裁剪面积占原图50%-100%（从原来的80%扩大到50%）
-        # 作用：模拟更大范围的物体大小和位置变化，增强模型对尺度变化的鲁棒性
-        # 增强强度：范围从0.8-1.0→0.5-1.0，使数据增强更多样
-        transforms.RandomResizedCrop(224, scale=(0.5, 1.0)),
+        # scale=(0.8,1.0) 裁剪面积占原图80%-100%
+        # 作用：模拟物体大小和位置变化，增强尺度鲁棒性
+        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
         
         # 随机水平翻转：50%概率进行左右翻转
         # 作用：增加数据多样性，利用图像的对称性
         transforms.RandomHorizontalFlip(p=0.5),
         
-        # 随机竖直翻转：25%概率进行上下翻转（新增）
-        # 作用：增加更多角度的数据多样性
-        transforms.RandomVerticalFlip(p=0.25),
+        # 随机旋转：±10度范围内随机旋转
+        # 作用：模拟拍摄角度的变化
+        transforms.RandomRotation(10),
         
-        # 随机旋转：±15度范围内随机旋转（从原来的±10度扩大到±15度）
-        # 作用：模拟更大范围的拍摄角度变化
-        # 增强强度：从10度→15度
-        transforms.RandomRotation(15),
-        
-        # 颜色抖动（Color Jitter）：随机调整亮度、对比度、饱和度、色调
+        # 颜色抖动（Color Jitter）：随机调整亮度、对比度、饱和度
         # 作用：适应不同光照条件和相机设置
-        # 增强强度：新增色调抖动(hue=0.1)，增加光照变化的多样性
         transforms.ColorJitter(
-            brightness=0.3,   # 从0.2→0.3
-            contrast=0.3,     # 从0.2→0.3
-            saturation=0.3,   # 从0.2→0.3
-            hue=0.1           # 新增色调抖动
+            brightness=0.2,
+            contrast=0.2,
+            saturation=0.2
         ),
-        
-        # 随机仿射变换（Affine）：随机进行仿射变换
-        # 作用：模拟图像的透视变换和剪切，增加更多几何变化
-        # 新增：degrees=15度旋转，translate=10%平移，scale=10%缩放，shear=10%剪切
-        transforms.RandomAffine(
-            degrees=15,
-            translate=(0.1, 0.1),
-            scale=(0.9, 1.1),
-            shear=10
-        ),
-        
-        # 高斯模糊（GaussianBlur）：随机应用高斯模糊
-        # 作用：模拟图像清晰度变化，增强模型对模糊图像的鲁棒性
-        # 新增：kernel_size在3-5之间，sigma在0.1-2.0之间
-        transforms.GaussianBlur(kernel_size=(3, 5), sigma=(0.1, 2.0)),
         
         # 转换为PyTorch张量：将PIL图像转换为[0, 1]范围的Tensor
         # 输出形状：[3, 224, 224] (C, H, W)

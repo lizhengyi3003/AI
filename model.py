@@ -215,10 +215,10 @@ class ResNeXt(nn.Module):
         # 输入：[B, 2048, 7, 7] → 输出：[B, 2048, 1, 1]
         self.avgpool = nn.AdaptiveAvgPool2d(output_size=1)
 
-        # Dropout层：防止过拟合，随机丢弃50%的神经元
+        # Dropout层：防止过拟合，随机丢弃20%的神经元
         # 在训练时启用（model.train()），在评估时禁用（model.eval()）
-        # 作用：增加模型泛化能力，防止对训练集的过度拟合
-        self.dropout = nn.Dropout(p=0.5)
+        # 作用：适度增加模型泛化能力，p=0.2 在保留足够特征信息的同时提供正则化
+        self.dropout = nn.Dropout(p=0.2)
 
         # 全连接分类层：将2048维特征映射到类别数
         # 输入：[B, 2048] → 输出：[B, num_classes]

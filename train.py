@@ -229,8 +229,7 @@ def train():
     print(f"  - 最大权重: {class_weights.max().item():.4f} (低频类别)")
     print(f"  - 平均权重: {class_weights.mean().item():.4f}")
     criterion = nn.CrossEntropyLoss(
-        weight=class_weights,        # 类别权重
-        label_smoothing=0.1         # Label Smoothing
+        weight=class_weights         # 类别权重（仅此一项处理类别不平衡）
     )
     
     # 3. Focal Loss（可选的高级方法，取消注释以使用）
