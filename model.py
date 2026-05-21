@@ -189,27 +189,36 @@ class ResNeXt(nn.Module):
         # ============ 四个残差阶段（Layer1-4）============
         # 每个阶段逐步提升通道数，并通过步长2进行空间下采样
         # 参数解释：_make_stage(输入通道, 输出通道, 基数, 基础宽度, 块数, 首个块步长)
+        # 
+        # 模型容量配置：ResNeXt-50标准结构
+        # blocks = [3, 4, 6, 3] 相比原来的 [2, 2, 2, 2] 增加了 30% 的卷积层
+        # 作用：更大的模型容量可以学习更复杂的特征表示，适合 101 个类别的分类任务
         self.layer1 = self._make_stage(
             in_ch=64, out_ch=256, cardinality=8, base_width=16, 
-            blocks=2, first_stride=1  # 不下采样
+            blocks=3, first_stride=1  # 从2→3个块，无下采样
         )
         self.layer2 = self._make_stage(
             in_ch=256, out_ch=512, cardinality=8, base_width=32,
-            blocks=2, first_stride=2  # 下采样2×
+            blocks=4, first_stride=2  # 从2→4个块，下采样2×
         )
         self.layer3 = self._make_stage(
             in_ch=512, out_ch=1024, cardinality=8, base_width=64,
-            blocks=2, first_stride=2  # 下采样2×
+            blocks=6, first_stride=2  # 从2→6个块，下采样2×
         )
         self.layer4 = self._make_stage(
             in_ch=1024, out_ch=2048, cardinality=8, base_width=128,
-            blocks=2, first_stride=2  # 下采样2×
+            blocks=3, first_stride=2  # 从2→3个块，下采样2×
         )
 
         # ============ 分类头 ============
         # 全局平均池化：将特征图空间维度平均为1×1
         # 输入：[B, 2048, 7, 7] → 输出：[B, 2048, 1, 1]
         self.avgpool = nn.AdaptiveAvgPool2d(output_size=1)
+
+        # Dropout层：防止过拟合，随机丢弃50%的神经元
+        # 在训练时启用（model.train()），在评估时禁用（model.eval()）
+        # 作用：增加模型泛化能力，防止对训练集的过度拟合
+        self.dropout = nn.Dropout(p=0.5)
 
         # 全连接分类层：将2048维特征映射到类别数
         # 输入：[B, 2048] → 输出：[B, num_classes]
@@ -292,6 +301,10 @@ class ResNeXt(nn.Module):
 
         # 展平：转换为二维张量以进行全连接
         x = torch.flatten(x, start_dim=1)  # [B, 2048, 1, 1] → [B, 2048]
+
+        # Dropout：在训练时随机丢弃，在评估时保留所有神经元
+        # 作用：防止过拟合，提升泛化能力
+        x = self.dropout(x)  # [B, 2048] → [B, 2048] (或部分元素为0)
 
         # 分类全连接层：生成类别logits
         x = self.fc(x)  # [B, 2048] → [B, num_classes]
