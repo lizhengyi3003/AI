@@ -20,6 +20,7 @@
 import sys
 import os
 import re
+import argparse
 from typing import List, Dict, Any
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
@@ -319,13 +320,22 @@ def main():
     print("📊 训练过程可视化")
     print("="*60)
     
+    # ============ 解析命令行参数 ============
+    parser = argparse.ArgumentParser(description="训练过程可视化")
+    parser.add_argument('--exp-id', type=str, default='01',
+                       help='实验编号，对应训练时使用的 exp_id (默认: 01)')
+    args = parser.parse_args()
+    
+    # 提取 exp_id 变量
+    exp_id = args.exp_id
+    
     try:
         # ============ 确保输出目录存在 ============
-        os.makedirs("log/training", exist_ok=True)
+        os.makedirs(f"log/{exp_id}/training", exist_ok=True)
         
         # ============ 第一步：解析日志文件 ============
         print("\n📖 正在读取训练日志...")
-        data = parse_log("log/training/train_log.txt")
+        data = parse_log(f"log/{exp_id}/training/train_log.txt")
         
         # 输出数据统计
         print(f"\n✅ 日志解析成功")
@@ -337,23 +347,23 @@ def main():
         
         # ============ 第二步：绘制 Loss 曲线 ============
         print("\n📈 正在绘制 Loss 曲线...")
-        plot_loss(data)
+        plot_loss(data, output_file=f"log/{exp_id}/training/loss_curve.png")
         
         # ============ 第三步：绘制 Accuracy 曲线 ============
-        print("📈 正在绘制 Accuracy 曲线...")
-        plot_accuracy(data)
+        print("📊 正在绘制 Accuracy 曲线...")
+        plot_accuracy(data, output_file=f"log/{exp_id}/training/accuracy_curve.png")
         
         # ============ 第四步：绘制合并双轴图 ============
-        print("📈 正在绘制合并双轴图...")
-        plot_combined(data)
+        print("📊 正在绘制合并双轴图...")
+        plot_combined(data, output_file=f"log/{exp_id}/training/combined_curve.png")
         
         print("\n" + "="*60)
         print("✅ 所有图表已成功生成！")
         print("="*60)
         print("\n📁 生成的文件：")
-        print("   • log/training/loss_curve.png - Loss 曲线")
-        print("   • log/training/accuracy_curve.png - Accuracy 曲线")
-        print("   • log/training/combined_curve.png - Loss + Accuracy 合并图")
+        print(f"   • log/{exp_id}/training/loss_curve.png - Loss 曲线")
+        print(f"   • log/{exp_id}/training/accuracy_curve.png - Accuracy 曲线")
+        print(f"   • log/{exp_id}/training/combined_curve.png - Loss + Accuracy 合并图")
         print("\n")
     
     except FileNotFoundError as e:

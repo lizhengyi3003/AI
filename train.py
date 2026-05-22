@@ -172,7 +172,12 @@ def train():
     parser.add_argument('--device', type=str, default='auto', 
                        choices=['auto', 'gpu', 'cpu'],
                        help='选择计算设备: auto=自动检测, gpu=强制GPU, cpu=强制CPU')
+    parser.add_argument('--exp-id', type=str, default='01',
+                       help='实验编号，用于区分不同的训练实验 (默认: 01)')
     args = parser.parse_args()
+    
+    # 提取并保存 exp_id 变量
+    exp_id = args.exp_id
     
     # ============ 第二步：初始化设备 ============
     # 根据参数选择并初始化计算设备，显示详细的硬件信息
@@ -239,11 +244,11 @@ def train():
     # ============ 第八步：创建模型和日志保存目录 ============
     # 创建目录用于保存训练好的模型权重和训练日志
     # exist_ok=True: 如果目录已存在则不报错
-    os.makedirs("model-out", exist_ok=True)
-    os.makedirs(os.path.join("log", "training"), exist_ok=True)
+    os.makedirs(f"model-out/{exp_id}", exist_ok=True)
+    os.makedirs(os.path.join("log", exp_id, "training"), exist_ok=True)
     
     # 打开文件用于记录每个epoch的训练日志
-    log_path = os.path.join("log", "training", "train_log.txt")
+    log_path = os.path.join("log", exp_id, "training", "train_log.txt")
     log_file = open(log_path, "w")
     
     # ============ 第九步：初始化最佳准确率跟踪与Early Stopping ============
@@ -442,7 +447,7 @@ def train():
             # torch.save 保存模型参数（权重和偏置）
             # model.state_dict() 返回模型的所有可训练参数字典
             # .pth 是PyTorch权重文件的标准扩展名
-            torch.save(model.state_dict(), "model-out/best.pth")
+            torch.save(model.state_dict(), f"model-out/{exp_id}/best.pth")
             print(f"✨ 新的最佳模型！验证准确率: {val_acc:.4f}")
         else:
             # 验证准确率未提升，增加不提升计数
@@ -454,7 +459,7 @@ def train():
         
         # 保存最后一个epoch的模型权重
         # 作为备选方案，防止最佳模型意外丢失
-        torch.save(model.state_dict(), "model-out/last.pth")
+        torch.save(model.state_dict(), f"model-out/{exp_id}/last.pth")
     
     # ============ 第十一步：训练完成 ============
     # 关闭日志文件，释放文件资源
@@ -464,9 +469,9 @@ def train():
     print("✅ 训练完成")
     print("="*60)
     print(f"🏆 最佳验证准确率: {best_acc:.4f} ({best_acc*100:.2f}%)")
-    print(f"💾 最佳模型已保存: model-out/best.pth")
-    print(f"💾 最后模型已保存: model-out/last.pth")
-    print(f"📝 训练日志已保存: log/training/train_log.txt")
+    print(f"💾 最佳模型已保存: model-out/{exp_id}/best.pth")
+    print(f"💾 最后模型已保存: model-out/{exp_id}/last.pth")
+    print(f"📝 训练日志已保存: log/{exp_id}/training/train_log.txt")
     print("="*60)
 
 

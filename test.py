@@ -78,7 +78,12 @@ def test():
     parser.add_argument('--device', type=str, default='auto',
                        choices=['auto', 'gpu', 'cpu'],
                        help='选择计算设备: auto=自动检测, gpu=强制GPU, cpu=强制CPU')
+    parser.add_argument('--exp-id', type=str, default='01',
+                       help='实验编号，对应训练时使用的 exp_id (默认: 01)')
     args = parser.parse_args()
+    
+    # 提取 exp_id 变量
+    exp_id = args.exp_id
     
     # ============ 第二步：初始化设备 ============
     # 根据参数选择并初始化计算设备，显示详细的硬件信息
@@ -103,11 +108,11 @@ def test():
     model = ResNeXt(num_classes=len(classes)).to(device)
     
     # 从保存的权重文件加载预训练的模型参数
-    # "model-out/best.pth"是在训练阶段保存的最佳模型
+    # f"model-out/{exp_id}/best.pth"是在训练阶段保存的最佳模型
     # map_location=device确保权重正确加载到指定设备（GPU或CPU）
     # 这避免了GPU权重加载到CPU时的兼容性问题
-    model.load_state_dict(torch.load("model-out/best.pth", map_location=device))
-    print("✓ 成功加载权重: model-out/best.pth")
+    model.load_state_dict(torch.load(f"model-out/{exp_id}/best.pth", map_location=device))
+    print(f"✓ 成功加载权重: model-out/{exp_id}/best.pth")
     
     # ============ 第五步：设置评估模式 ============
     # model.eval() 将模型设置为评估（推理）模式

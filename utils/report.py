@@ -488,7 +488,12 @@ def main() -> None:
     parser.add_argument('--device', type=str, default='auto',
                        choices=['auto', 'gpu', 'cpu'],
                        help='Device selection: auto/gpu/cpu')
+    parser.add_argument('--exp-id', type=str, default='01',
+                       help='实验编号，对应训练时使用的 exp_id (默认: 01)')
     args = parser.parse_args()
+    
+    # 提取 exp_id 变量
+    exp_id = args.exp_id
     
     # 初始化设备
     device_name = parse_device_arg(args)
@@ -512,44 +517,50 @@ def main() -> None:
     print("="*60)
     
     # 确保输出目录存在
-    os.makedirs("log/evaluation", exist_ok=True)
+    os.makedirs(f"log/{exp_id}/evaluation", exist_ok=True)
     
     # 1. 测试准确率汇总
     save_test_accuracy_summary(accuracy, len(classes), num_test_samples,
-                               analysis_data['per_class_stats'], classes)
+                               analysis_data['per_class_stats'], classes,
+                               output_file=f"log/{exp_id}/evaluation/test_accuracy_summary.txt")
     
     # 2. 预测样例可视化
     model = ResNeXt(num_classes=len(classes)).to(device)
-    model.load_state_dict(torch.load("model-out/best.pth", map_location=device))
+    model.load_state_dict(torch.load(f"model-out/{exp_id}/best.pth", map_location=device))
     model.eval()
-    visualize_prediction_examples(classes, test_loader, model, device)
+    visualize_prediction_examples(classes, test_loader, model, device,
+                                 output_file=f"log/{exp_id}/evaluation/prediction_examples.png")
     
     # 3. 混淆矩阵
     generate_confusion_matrix(
         analysis_data['all_preds'],
         analysis_data['all_labels'],
-        classes
+        classes,
+        output_file=f"log/{exp_id}/evaluation/confusion_matrix.png"
     )
     
     # 4. 每类准确率
     generate_per_class_accuracy(
         analysis_data['per_class_stats'],
-        classes
+        classes,
+        output_file=f"log/{exp_id}/evaluation/per_class_accuracy.png"
     )
     
     # 5. 学习率变化曲线
-    generate_learning_rate_schedule()
+    generate_learning_rate_schedule(
+        output_file=f"log/{exp_id}/evaluation/learning_rate_schedule.png"
+    )
     
     # ============ 总结 ============
     print("\n" + "="*60)
     print("✅ Report generation complete!")
     print("="*60)
     print("\nGenerated files:")
-    print("   • log/evaluation/test_accuracy_summary.txt")
-    print("   • log/evaluation/prediction_examples.png")
-    print("   • log/evaluation/confusion_matrix.png")
-    print("   • log/evaluation/per_class_accuracy.png")
-    print("   • log/evaluation/learning_rate_schedule.png")
+    print(f"   • log/{exp_id}/evaluation/test_accuracy_summary.txt")
+    print(f"   • log/{exp_id}/evaluation/prediction_examples.png")
+    print(f"   • log/{exp_id}/evaluation/confusion_matrix.png")
+    print(f"   • log/{exp_id}/evaluation/per_class_accuracy.png")
+    print(f"   • log/{exp_id}/evaluation/learning_rate_schedule.png")
     print("="*60 + "\n")
 
 
