@@ -12,7 +12,7 @@
     - ✅ model.py、train.py、test.py等核心脚本存在性
     - ✅ utils/report.py、utils/draw.py等工具脚本存在性
     - ✅ data/train/、data/val/、data/test/数据集目录
-    - ✅ log/training/、log/evaluation/日志子目录结构
+    - ✅ log/、model-out/ 输出目录（训练时自动按实验编号创建子目录）
     - ✅ 脚本Python代码语法正确性
     - ✅ ResNeXt模型能否正常初始化和前向传播
 
@@ -41,8 +41,6 @@ import importlib
 import os
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
-# 问题：当直接运行 python environment/verify_setup.py 时，Python 会将 environment/ 加入 sys.path[0]
-# 解决：优先加入项目根目录，并移除/调整 environment/ 目录优先级
 _current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（environment/）
 _project_root = os.path.dirname(_current_dir)  # 项目根目录
 
@@ -152,6 +150,7 @@ def check_files():
         "environment/verify_setup.py": "环境验证工具",
         "requirements.txt": "依赖包配置",
         "README.md": "项目文档",
+        "help_document/copilot-commit-instructions.md": "提交信息生成规范",
     }
     
     all_files_ok = True
@@ -184,10 +183,18 @@ def check_files():
     print("\n  配置文件:")
     for filepath in ["requirements.txt", "README.md"]:
         if os.path.exists(filepath):
-            print(f"  ✅ {filepath:<25} {required_files[filepath]}")
+            print(f"  ✅ {filepath:<35} {required_files[filepath]}")
         else:
-            print(f"  ❌ {filepath:<25} {required_files[filepath]} - 文件缺失！")
+            print(f"  ❌ {filepath:<35} {required_files[filepath]} - 文件缺失！")
             all_files_ok = False
+    
+    print("\n  帮助文档:")
+    for filepath in ["help_document/copilot-commit-instructions.md"]:
+        if os.path.exists(filepath):
+            print(f"  ✅ {filepath:<45} {required_files[filepath]}")
+        else:
+            print(f"  ⚠️  {filepath:<45} {required_files[filepath]} - 文件缺失（非必需）")
+            # 帮助文档缺失不标记 all_files_ok = False
     
     # ============ 第二步：检查数据集目录 ============
     print("\n📂 检查数据集目录...")
@@ -224,10 +231,9 @@ def check_files():
     required_dirs = {
         "utils": "工具函数目录",
         "environment": "环境配置目录",
-        "log": "日志输出目录",
-        "log/training": "训练输出子目录",
-        "log/evaluation": "评估报告子目录",
-        "model-out": "模型输出目录",
+        "help_document": "帮助文档目录",
+        "log": "日志输出目录（训练时自动按实验编号创建 log/{exp_id}/ 子目录）",
+        "model-out": "模型输出目录（训练时自动按实验编号创建 model-out/{exp_id}/ 子目录）",
     }
     
     for dir_name, description in required_dirs.items():
@@ -508,16 +514,16 @@ def main():
         # 所有关键检查都通过，可以开始训练
         print("✅ 环境检查通过！可以开始以下工作：")
         print("=" * 60)
-        print("\n  【训练】")
-        print("    python train.py --device auto")
+        print("\n  【训练】（支持 --exp-id 实验编号，默认 01）")
+        print("    python train.py --exp-id 01 --device auto")
         print("\n  【测试】")
-        print("    python test.py --device auto")
+        print("    python test.py --exp-id 01 --device auto")
         print("\n  【推理预测】")
         print("    python utils/predict.py --device auto")
         print("\n  【训练曲线可视化】")
-        print("    python utils/draw.py")
+        print("    python utils/draw.py --exp-id 01")
         print("\n  【评估报告生成】")
-        print("    python utils/report.py --device auto")
+        print("    python utils/report.py --exp-id 01 --device auto")
         print("\n  【环境验证】")
         print("    python environment/verify_setup.py")
         print("\n" + "=" * 60)

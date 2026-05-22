@@ -45,6 +45,76 @@ from mydataset import get_dataloaders
 from environment.device_utils import parse_device_arg, setup_device
 
 
+class FocalLoss(nn.Module):
+    """Focal Loss - 对难分类样本给予更高权重的损失函数。
+    
+    Focal Loss 通过降低分类良好的样本的权重，同时提高难分类样本的权重，
+    来解决类别不平衡问题。特别适合有大量简单样本和少量难分类样本的场景。
+    
+    论文：Lin et al., "Focal Loss for Dense Object Detection" (2017)
+    
+    公式：
+        FL(p_t) = -α_t * (1 - p_t)^γ * log(p_t)
+        
+    其中：
+        - p_t：模型对真实类别的预测概率
+        - α_t：可选的类别平衡权重
+        - γ (gamma)：聚焦参数，控制难分类样本的权重
+          * γ=0：等同于标准CrossEntropyLoss
+          * γ越大：对难分类样本关注越多
+    
+    Attributes:
+        alpha (float or Tensor): 类别平衡权重，默认为 1.0
+        gamma (float): 聚焦参数，通常设为 2.0
+        reduction (str): 损失计算方式，'mean' 或 'sum'
+    """
+    
+    def __init__(self, alpha=1.0, gamma=2.0, reduction='mean'):
+        """初始化 Focal Loss。
+        
+        Args:
+            alpha (float): 类别平衡权重，默认为 1.0。
+                通常可以设为 1 - class_prob（某一类的先验概率）。
+            gamma (float): 聚焦参数，默认为 2.0。
+                - gamma=0：等同于 CrossEntropyLoss
+                - gamma=1-3：推荐范围
+                - gamma 越大，对难分类样本关注越多
+            reduction (str): 损失聚合方式，'mean' 或 'sum'。
+        """
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+    
+    def forward(self, inputs, targets):
+        """前向传播。
+        
+        Args:
+            inputs (torch.Tensor): 模型输出的 logits，形状 [N, C]
+            targets (torch.Tensor): 真实标签，形状 [N]
+            
+        Returns:
+            torch.Tensor: 标量损失值
+        """
+        # 获取 softmax 概率
+        ce_loss = nn.functional.cross_entropy(inputs, targets, reduction='none')
+        
+        # 获取预测概率
+        p = torch.exp(-ce_loss)
+        
+        # 计算 Focal Loss：-α * (1 - p)^γ * log(p)
+        focal_weight = self.alpha * (1 - p) ** self.gamma
+        focal_loss = focal_weight * ce_loss
+        
+        # 按指定方式聚合
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
+
+
 def train():
     """执行ResNeXt模型的完整训练过程，包含参数优化和模型评估。
     
@@ -102,7 +172,12 @@ def train():
     parser.add_argument('--device', type=str, default='auto', 
                        choices=['auto', 'gpu', 'cpu'],
                        help='选择计算设备: auto=自动检测, gpu=强制GPU, cpu=强制CPU')
+    parser.add_argument('--exp-id', type=str, default='01',
+                       help='实验编号，用于区分不同的训练实验 (默认: 01)')
     args = parser.parse_args()
+    
+    # 提取并保存 exp_id 变量
+    exp_id = args.exp_id
     
     # ============ 第二步：初始化设备 ============
     # 根据参数选择并初始化计算设备，显示详细的硬件信息
@@ -141,9 +216,11 @@ def train():
     print(f"✓ 模型初始化完成（参数数: {sum(p.numel() for p in model.parameters())/1e6:.2f}M）")
     
     # ============ 第五步：损失函数配置 ============
-    # CrossEntropyLoss = Softmax + LogLoss，标准的多分类任务损失函数
-    # 作用：测量模型预测的概率分布与真实标签的差异
-    # 损失值越小表示预测越准确
+    # CrossEntropyLoss：标准多分类损失函数，提供最干净的梯度信号
+    # 经验证明在 101 类细粒度分类上，CE Loss 配合正则化优于 Focal Loss
+    # Focal Loss 设计用于极端不平衡（1:1000+），在 35:1 的类别比下反而干扰收敛
+    print("\n📊 损失函数: CrossEntropyLoss")
+    print(f"  - 标准 CE Loss 提供最稳定的梯度信号，配合正则化抑制过拟合")
     criterion = nn.CrossEntropyLoss()
     
     # ============ 第六步：优化器配置 ============
@@ -153,8 +230,9 @@ def train():
         model.parameters(),           # 指定要优化的参数
         lr=lr,                        # 学习率：参数更新步长
         momentum=0.9,                 # 动量：加权过去的梯度，加速收敛
-        weight_decay=1e-4             # L2正则化强度，防止过拟合
+        weight_decay=5e-4             # L2正则化强度，防止过拟合
                                       # 公式：loss_new = loss + weight_decay * ||params||^2
+                                      # 5e-4 介于原始 1e-4 和过强 1e-3 之间，平衡收敛与正则化
     )
     
     # ============ 第七步：学习率调度器配置 ============
@@ -166,17 +244,22 @@ def train():
     # ============ 第八步：创建模型和日志保存目录 ============
     # 创建目录用于保存训练好的模型权重和训练日志
     # exist_ok=True: 如果目录已存在则不报错
-    os.makedirs("model-out", exist_ok=True)
-    os.makedirs(os.path.join("log", "training"), exist_ok=True)
+    os.makedirs(f"model-out/{exp_id}", exist_ok=True)
+    os.makedirs(os.path.join("log", exp_id, "training"), exist_ok=True)
     
     # 打开文件用于记录每个epoch的训练日志
-    log_path = os.path.join("log", "training", "train_log.txt")
+    log_path = os.path.join("log", exp_id, "training", "train_log.txt")
     log_file = open(log_path, "w")
     
-    # ============ 第九步：初始化最佳准确率跟踪 ============
+    # ============ 第九步：初始化最佳准确率跟踪与Early Stopping ============
     # 用于保存验证集上的最高准确率
     # 当验证准确率超过该值时，保存当前模型为最佳模型
     best_acc = 0.0
+    
+    # Early Stopping配置：如果验证准确率连续10个epoch不提升则停止训练
+    # 作用：避免无效训练，节省时间，保留最佳模型
+    patience = 10                     # 容忍度：连续多少个epoch不提升后停止
+    patience_counter = 0              # 不提升的epoch计数器
     
     print("✓ 所有配置完成，开始训练循环\n")
 
@@ -235,8 +318,12 @@ def train():
             # -------- 5. 反向传播（Backward Pass） --------
             # loss.backward() 计算损失对所有参数的梯度
             # 使用链式法则从输出层逐层向后计算梯度
-            # 时间复杂度：约等于前向传播的2-3倍
             loss.backward()
+            
+            # -------- 5.5 梯度裁剪（Gradient Clipping） --------
+            # 将梯度范数限制在 max_norm 以内，防止 Focal Loss 对难样本产生过大梯度
+            # 作用：防止训练震荡（如 val loss 突然暴增），提升训练稳定性
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             
             # -------- 6. 参数更新（Optimization Step） --------
             # optimizer.step() 根据梯度更新模型参数
@@ -351,20 +438,28 @@ def train():
         # 打印日志到控制台
         print(f"📊 {log_msg}")
         
-        # -------- 模型保存策略 --------
+        # -------- 模型保存策略与Early Stopping --------
         # 保存最佳模型（基于验证准确率）
         # 这样即使后续训练变差，也能保留最佳的模型权重
         if val_acc > best_acc:
             best_acc = val_acc
+            patience_counter = 0  # 重置不提升计数器
             # torch.save 保存模型参数（权重和偏置）
             # model.state_dict() 返回模型的所有可训练参数字典
             # .pth 是PyTorch权重文件的标准扩展名
-            torch.save(model.state_dict(), "model-out/best.pth")
+            torch.save(model.state_dict(), f"model-out/{exp_id}/best.pth")
             print(f"✨ 新的最佳模型！验证准确率: {val_acc:.4f}")
+        else:
+            # 验证准确率未提升，增加不提升计数
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"\n⚠️  Early Stopping: 验证准确率连续{patience}个epoch未提升，停止训练")
+                print(f"🏆 最佳验证准确率: {best_acc:.4f} (于第{epoch - patience}个epoch达到)")
+                break  # 跳出训练循环
         
         # 保存最后一个epoch的模型权重
         # 作为备选方案，防止最佳模型意外丢失
-        torch.save(model.state_dict(), "model-out/last.pth")
+        torch.save(model.state_dict(), f"model-out/{exp_id}/last.pth")
     
     # ============ 第十一步：训练完成 ============
     # 关闭日志文件，释放文件资源
@@ -374,9 +469,9 @@ def train():
     print("✅ 训练完成")
     print("="*60)
     print(f"🏆 最佳验证准确率: {best_acc:.4f} ({best_acc*100:.2f}%)")
-    print(f"💾 最佳模型已保存: model-out/best.pth")
-    print(f"💾 最后模型已保存: model-out/last.pth")
-    print(f"📝 训练日志已保存: log/training/train_log.txt")
+    print(f"💾 最佳模型已保存: model-out/{exp_id}/best.pth")
+    print(f"💾 最后模型已保存: model-out/{exp_id}/last.pth")
+    print(f"📝 训练日志已保存: log/{exp_id}/training/train_log.txt")
     print("="*60)
 
 

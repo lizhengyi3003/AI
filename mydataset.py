@@ -21,10 +21,76 @@ if _current_dir not in sys.path:
     sys.path.insert(0, _current_dir)
 
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
+import numpy as np
 
 
-def get_dataloaders(data_root, batch_size=32, num_workers=2):
+def compute_class_weights(dataset):
+    """计算类别权重用于处理类别不平衡。
+    
+    权重计算方法：class_weight = total_samples / (num_classes * samples_per_class)
+    这种方法给予样本少的类别更高的权重，有利于长尾分布的学习。
+    
+    Args:
+        dataset: PyTorch Dataset，必须有 imgs 或 samples 属性
+        
+    Returns:
+        torch.Tensor: 形状为 [num_classes]，每个元素是对应类别的权重
+    """
+    # 统计每个类别的样本数
+    class_counts = {}
+    for idx in range(len(dataset)):
+        # ImageFolder的样本格式：(image_path, class_idx)
+        _, label = dataset[idx]
+        label = int(label)
+        class_counts[label] = class_counts.get(label, 0) + 1
+    
+    # 计算类别权重
+    num_samples = len(dataset)
+    num_classes = len(class_counts)
+    weights = []
+    
+    for i in range(num_classes):
+        if i in class_counts:
+            # 权重公式：总样本数 / (类别数 * 该类样本数)
+            # 样本少的类别权重会更大
+            weight = num_samples / (num_classes * class_counts[i])
+        else:
+            weight = 1.0
+        weights.append(weight)
+    
+    # 转换为 torch tensor
+    import torch
+    weights = torch.tensor(weights, dtype=torch.float32)
+    
+    return weights
+
+
+def compute_sample_weights(dataset, class_weights):
+    """为每个样本计算权重。
+    
+    Args:
+        dataset: PyTorch Dataset
+        class_weights: 类别权重张量
+        
+    Returns:
+        list[float]: 长度为 len(dataset) 的权重列表，
+            每个元素是对应样本的权重。
+            返回 list 而非 Tensor，以兼容 WeightedRandomSampler
+            的 weights 参数类型（Sequence[float]）。
+    """
+    sample_weights = []
+    
+    for idx in range(len(dataset)):
+        _, label = dataset[idx]
+        label = int(label)
+        # 样本权重 = 其所属类别的权重
+        sample_weights.append(class_weights[label].item())
+    
+    return sample_weights
+
+
+def get_dataloaders(data_root, batch_size=32, num_workers=2, use_weighted_sampler=False):
     """创建训练、验证、测试数据加载器（DataLoader）。
     
     该函数从指定目录加载图像数据，应用不同的预处理策略：
@@ -54,6 +120,9 @@ def get_dataloaders(data_root, batch_size=32, num_workers=2):
         num_workers (int, optional): 数据加载的工作线程数，默认为2。
             - 0: 在主进程加载数据（调试时推荐）
             - >0: 使用多进程加载，加速数据读取
+        use_weighted_sampler (bool, optional): 是否使用加权采样处理类别不平衡，默认为 True。
+            - True: 使用 WeightedRandomSampler，每个 batch 的类别分布会更均衡
+            - False: 使用标准的随机采样
     
     Returns:
         tuple: 包含四个元素的元组：
@@ -66,19 +135,20 @@ def get_dataloaders(data_root, batch_size=32, num_workers=2):
         - 所有图像被缩放至224×224像素（ResNeXt模型的标准输入尺寸）
         - 使用ImageNet的官方均值[0.485, 0.456, 0.406]和标准差[0.229, 0.224, 0.225]
         - 训练集启用shuffle，验证/测试集不启用shuffle
+        - 当 use_weighted_sampler=True 时，自动计算类别权重处理长尾分布
     """
     # ============ 训练集数据变换（Data Augmentation）============
-    # 目的：增加训练数据的多样性，防止模型过拟合
-    # 通过随机变换生成不同视角的相同对象，提高模型的泛化能力
+    # 目的：适度增加训练数据多样性，防止过拟合但不破坏细粒度特征
+    # 注意：对101类细粒度分类，过强增强会破坏类别区分性特征
     train_transform = transforms.Compose([
         # 随机缩放裁剪：随机比例裁剪后缩放到224×224
-        # scale=(0.8,1.0) 表示裁剪面积占原图8%-100%
-        # 作用：模拟不同物体大小和位置，增强模型对尺度变化的鲁棒性
+        # scale=(0.8,1.0) 裁剪面积占原图80%-100%
+        # 作用：模拟物体大小和位置变化，增强尺度鲁棒性
         transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
         
         # 随机水平翻转：50%概率进行左右翻转
         # 作用：增加数据多样性，利用图像的对称性
-        transforms.RandomHorizontalFlip(),
+        transforms.RandomHorizontalFlip(p=0.5),
         
         # 随机旋转：±10度范围内随机旋转
         # 作用：模拟拍摄角度的变化
@@ -86,7 +156,11 @@ def get_dataloaders(data_root, batch_size=32, num_workers=2):
         
         # 颜色抖动（Color Jitter）：随机调整亮度、对比度、饱和度
         # 作用：适应不同光照条件和相机设置
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.ColorJitter(
+            brightness=0.2,
+            contrast=0.2,
+            saturation=0.2
+        ),
         
         # 转换为PyTorch张量：将PIL图像转换为[0, 1]范围的Tensor
         # 输出形状：[3, 224, 224] (C, H, W)
@@ -146,18 +220,44 @@ def get_dataloaders(data_root, batch_size=32, num_workers=2):
     #   1. 从Dataset中批量采样
     #   2. 多进程加速数据读取
     #   3. 自动合并成批处理的张量
-    train_loader = DataLoader(
-        train_set,
-        batch_size=batch_size,
-        shuffle=True,        # 训练集每个epoch打乱顺序（重要！提高模型泛化能力）
-        num_workers=num_workers
-    )
+    
+    # 训练集：使用加权采样处理类别不平衡（如果启用）
+    if use_weighted_sampler:
+        # 计算类别权重
+        class_weights = compute_class_weights(train_set)
+        # 计算每个样本的权重
+        sample_weights = compute_sample_weights(train_set, class_weights)
+        # 创建加权采样器：根据样本权重进行采样
+        # 这确保了每个 batch 中的类别分布更均衡
+        sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(train_set),
+            replacement=True  # 允许重复采样
+        )
+        train_loader = DataLoader(
+            train_set,
+            batch_size=batch_size,
+            sampler=sampler,  # 使用加权采样器替代 shuffle
+            num_workers=num_workers
+        )
+    else:
+        # 不使用加权采样，标准的随机采样
+        train_loader = DataLoader(
+            train_set,
+            batch_size=batch_size,
+            shuffle=True,  # 训练集每个epoch打乱顺序（重要！提高模型泛化能力）
+            num_workers=num_workers
+        )
+    
+    # 验证集：不使用加权采样（保证一致的评估）
     val_loader = DataLoader(
         val_set,
         batch_size=batch_size,
         shuffle=False,       # 验证集不打乱（保持一致的评估）
         num_workers=num_workers
     )
+    
+    # 测试集：不使用加权采样（保证可复现性）
     test_loader = DataLoader(
         test_set,
         batch_size=batch_size,

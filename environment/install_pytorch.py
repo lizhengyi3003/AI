@@ -14,8 +14,6 @@ import platform
 import argparse
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
-# 问题：当直接运行 python environment/install_pytorch.py 时，Python 会将 environment/ 加入 sys.path[0]
-# 解决：优先加入项目根目录，并移除/调整 environment/ 目录优先级
 _current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（environment/）
 _project_root = os.path.dirname(_current_dir)  # 项目根目录
 
