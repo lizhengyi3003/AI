@@ -40,9 +40,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
-from torchvision import datasets
 from model import ResNeXt
-from mydataset import get_dataloaders, compute_class_weights
+from mydataset import get_dataloaders
 from environment.device_utils import parse_device_arg, setup_device
 
 
@@ -212,33 +211,12 @@ def train():
     print(f"✓ 模型初始化完成（参数数: {sum(p.numel() for p in model.parameters())/1e6:.2f}M）")
     
     # ============ 第五步：损失函数配置 ============
-    # 支持三种损失函数处理类别不平衡问题：
-    
-    # 1. 标准 CrossEntropyLoss + Label Smoothing（当前配置）
-    # criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-    
-    # 2. 加权 CrossEntropyLoss：对样本少的类别给予更高权重
-    # 计算类别权重（使用公式：weight = total_samples / (num_classes * samples_per_class)）
-    print("\n📊 计算类别权重...")
-    train_set_temp = datasets.ImageFolder(f"{data_root}/train")
-    class_weights = compute_class_weights(train_set_temp)
-    class_weights = class_weights.to(device)  # 移到指定设备
-    
-    # 显示权重统计信息
-    print(f"  - 最小权重: {class_weights.min().item():.4f} (高频类别)")
-    print(f"  - 最大权重: {class_weights.max().item():.4f} (低频类别)")
-    print(f"  - 平均权重: {class_weights.mean().item():.4f}")
-    criterion = nn.CrossEntropyLoss(
-        weight=class_weights         # 类别权重（仅此一项处理类别不平衡）
-    )
-    
-    # 3. Focal Loss（可选的高级方法，取消注释以使用）
-    # criterion = FocalLoss(alpha=1.0, gamma=2.0)
-    # 
-    # Focal Loss 特点：
-    #   - 对难分类样本给予更高权重
-    #   - 适合样本复杂度差异大的场景
-    #   - gamma越大，对难分类样本关注越多
+    # CrossEntropyLoss：标准多分类损失函数，提供最干净的梯度信号
+    # 经验证明在 101 类细粒度分类上，CE Loss 配合正则化优于 Focal Loss
+    # Focal Loss 设计用于极端不平衡（1:1000+），在 35:1 的类别比下反而干扰收敛
+    print("\n📊 损失函数: CrossEntropyLoss")
+    print(f"  - 标准 CE Loss 提供最稳定的梯度信号，配合正则化抑制过拟合")
+    criterion = nn.CrossEntropyLoss()
     
     # ============ 第六步：优化器配置 ============
     # SGD: 随机梯度下降（Stochastic Gradient Descent）
@@ -247,9 +225,9 @@ def train():
         model.parameters(),           # 指定要优化的参数
         lr=lr,                        # 学习率：参数更新步长
         momentum=0.9,                 # 动量：加权过去的梯度，加速收敛
-        weight_decay=1e-3             # L2正则化强度（增强到1e-3），防止过拟合
+        weight_decay=5e-4             # L2正则化强度，防止过拟合
                                       # 公式：loss_new = loss + weight_decay * ||params||^2
-                                      # 增强正则化可显著减轻过拟合
+                                      # 5e-4 介于原始 1e-4 和过强 1e-3 之间，平衡收敛与正则化
     )
     
     # ============ 第七步：学习率调度器配置 ============
@@ -335,8 +313,12 @@ def train():
             # -------- 5. 反向传播（Backward Pass） --------
             # loss.backward() 计算损失对所有参数的梯度
             # 使用链式法则从输出层逐层向后计算梯度
-            # 时间复杂度：约等于前向传播的2-3倍
             loss.backward()
+            
+            # -------- 5.5 梯度裁剪（Gradient Clipping） --------
+            # 将梯度范数限制在 max_norm 以内，防止 Focal Loss 对难样本产生过大梯度
+            # 作用：防止训练震荡（如 val loss 突然暴增），提升训练稳定性
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             
             # -------- 6. 参数更新（Optimization Step） --------
             # optimizer.step() 根据梯度更新模型参数

@@ -12,6 +12,54 @@ import torch
 import torch.nn as nn
 
 
+class SELayer(nn.Module):
+    """Squeeze-and-Excitation 注意力模块。
+    
+    通过对通道维度进行自适应重新校准，增强有用的特征通道并抑制无关通道。
+    这是一个轻量级的注意力机制，仅增加约 2% 的参数量。
+    
+    论文：Hu et al., "Squeeze-and-Excitation Networks", CVPR 2018
+    
+    工作流程：
+        1. Squeeze: 全局平均池化 → [B, C, 1, 1]
+        2. Excitation: FC(C→C/r) → ReLU → FC(C/r→C) → Sigmoid
+        3. Scale: 将学习到的权重逐通道乘以原始特征图
+    
+    Attributes:
+        fc1 (nn.Conv2d): 降维层，C → C//reduction
+        fc2 (nn.Conv2d): 升维层，C//reduction → C
+    """
+    
+    def __init__(self, channel, reduction=16):
+        """初始化 SE 模块。
+        
+        Args:
+            channel (int): 输入特征图的通道数
+            reduction (int): 压缩比率，默认为 16。值越大压缩越多，参数越少
+        """
+        super().__init__()
+        self.fc1 = nn.Conv2d(channel, channel // reduction, kernel_size=1)
+        self.fc2 = nn.Conv2d(channel // reduction, channel, kernel_size=1)
+    
+    def forward(self, x):
+        """前向传播。
+        
+        Args:
+            x: [B, C, H, W]
+        Returns:
+            [B, C, H, W]，通道权重已被重新校准
+        """
+        # Squeeze: 全局空间信息压缩
+        y = nn.functional.adaptive_avg_pool2d(x, 1)
+        # Excitation: 学习通道间依赖关系
+        y = self.fc1(y)
+        y = nn.functional.relu(y, inplace=True)
+        y = self.fc2(y)
+        y = torch.sigmoid(y)
+        # Scale: 重新校准原始特征
+        return x * y
+
+
 class ResNeXtBlock(nn.Module):
     """ResNeXt基础残差块（使用分组卷积的瓶颈残差块）。
     
@@ -36,23 +84,19 @@ class ResNeXtBlock(nn.Module):
         shortcut (nn.Module): 残差连接模块。
     """
 
-    def __init__(self, in_ch, out_ch, cardinality, base_width, stride=1):
+    def __init__(self, in_ch, out_ch, cardinality, base_width, stride=1, use_se=False):
         """初始化ResNeXtBlock模块。
         
         Args:
-            in_ch (int): 输入特征图的通道数（上一层的输出通道数）。
-            out_ch (int): 输出特征图的通道数（处理后的输出通道数）。
-            cardinality (int): 分组卷积的组数（分组卷积的组数）。
-                通常设为8，表示将特征分成8组独立进行卷积。
-            base_width (int): 每个分组的基础宽度（d），即 mid_ch = cardinality * base_width。
-                不同阶段取值不同：layer1取16, layer2取32, layer3取64, layer4取128。
-            stride (int, optional): 卷积步长，默认为1。取值2时进行下采样，特征图空间尺寸减半。
-        
-        Note:
-            中间通道数计算：mid_ch = cardinality × base_width
-            例如，cardinality=8, base_width=32时，mid_ch=256
+            in_ch (int): 输入通道数
+            out_ch (int): 输出通道数
+            cardinality (int): 分组卷积的组数
+            base_width (int): 每组基础宽度，mid_ch = cardinality × base_width
+            stride (int, optional): 卷积步长，默认1
+            use_se (bool, optional): 是否使用 SE 注意力，默认 False
         """
         super().__init__()
+        self.use_se = use_se
 
         # 计算分组卷积的中间通道数
         mid_ch = cardinality * base_width
@@ -77,8 +121,11 @@ class ResNeXtBlock(nn.Module):
         self.conv3 = nn.Conv2d(mid_ch, out_ch, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(out_ch)
 
+        # SE 注意力模块：对通道进行自适应重新校准（消融实验用）
+        if use_se:
+            self.se = SELayer(out_ch, reduction=16)
+
         # ReLU激活函数：输出 = max(0, 输入)
-        # inplace=True: 直接修改输入张量，节省内存
         self.relu = nn.ReLU(inplace=True)
 
         # ============ 残差连接（Shortcut Path）============
@@ -127,10 +174,13 @@ class ResNeXtBlock(nn.Module):
         out = self.relu(out)  # 第二个激活
 
         out = self.conv3(out)
-        out = self.bn3(out)  # 注意：第三层后不经过激活，为的是在加法前保留原始特征信息
+        out = self.bn3(out)  # 第三层后不经过激活，保留原始特征信息
+
+        # SE 注意力：通道自适应重新校准（残差相加前执行）
+        if self.use_se:
+            out = self.se(out)
 
         # 残差相加：融合主路径和残差连接
-        # 这里不对出来的结果直接激活，因为需要让 identity 的信息参与加法运算
         out += identity
 
         # 最后通过激活函数
@@ -161,53 +211,49 @@ class ResNeXt(nn.Module):
         fc (nn.Linear): 分类全连接层。
     """
 
-    def __init__(self, num_classes=101):
+    def __init__(self, num_classes=101, cardinality=8, use_se=False):
         """初始化ResNeXt网络。
         
         Args:
-            num_classes (int, optional): 分类类别数，默认为101。用于ImageNet数据集。
-                根据实际数据集调整此参数（如CIFAR-10为10，CIFAR-100为100）。
-        
-        Note:
-            所有conv层都不使用偏置（bias=False），因为后面紧接BN层会处理偏置。
+            num_classes (int): 分类类别数，默认 101
+            cardinality (int): 分组卷积基数 C，默认 8
+                改变基数时自动缩放 base_width 保持 mid_ch 不变
+            use_se (bool): 是否启用 SE 注意力，默认 False
         """
         super().__init__()
+        self.cardinality = cardinality
+        self.use_se = use_se
 
-        # ============ Stem（茎部）：初始预处理模块 ============
-        # 作用：对输入图像进行初步特征提取，降低空间分辨率，提升计算效率
-        # 输入：[B, 3, 224, 224] (RGB图像)
-        # 输出：[B, 64, 56, 56] (7×7卷积+2×池化共4倍下采样)
+        # 根据基数自动缩放 base_width，保持 mid_ch = C × bw 不变
+        # C=4: bw×2  |  C=8: bw×1  |  C=16: bw÷2
+        scale = 8 / cardinality
+        bw = lambda x: int(x * scale)
+
+        # ============ Stem ============
         self.stem = nn.Sequential(
-            # 大卷积核（7×7）快速提取低级特征，步长2进行首次下采样
             nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            # 最大池化进行第二次下采样
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
 
-        # ============ 四个残差阶段（Layer1-4）============
-        # 每个阶段逐步提升通道数，并通过步长2进行空间下采样
-        # 参数解释：_make_stage(输入通道, 输出通道, 基数, 基础宽度, 块数, 首个块步长)
-        # 
-        # 模型容量配置：ResNeXt-50标准结构
-        # blocks = [3, 4, 6, 3] 相比原来的 [2, 2, 2, 2] 增加了 30% 的卷积层
-        # 作用：更大的模型容量可以学习更复杂的特征表示，适合 101 个类别的分类任务
+        # ============ 四个残差阶段 ============
+        # base_width 通过 bw() 自动缩放，保持 mid_ch 恒定以公平对比
         self.layer1 = self._make_stage(
-            in_ch=64, out_ch=256, cardinality=8, base_width=16, 
-            blocks=3, first_stride=1  # 从2→3个块，无下采样
+            in_ch=64, out_ch=256, cardinality=cardinality, base_width=bw(16),
+            blocks=3, first_stride=1
         )
         self.layer2 = self._make_stage(
-            in_ch=256, out_ch=512, cardinality=8, base_width=32,
-            blocks=4, first_stride=2  # 从2→4个块，下采样2×
+            in_ch=256, out_ch=512, cardinality=cardinality, base_width=bw(32),
+            blocks=4, first_stride=2
         )
         self.layer3 = self._make_stage(
-            in_ch=512, out_ch=1024, cardinality=8, base_width=64,
-            blocks=6, first_stride=2  # 从2→6个块，下采样2×
+            in_ch=512, out_ch=1024, cardinality=cardinality, base_width=bw(64),
+            blocks=6, first_stride=2
         )
         self.layer4 = self._make_stage(
-            in_ch=1024, out_ch=2048, cardinality=8, base_width=128,
-            blocks=3, first_stride=2  # 从2→3个块，下采样2×
+            in_ch=1024, out_ch=2048, cardinality=cardinality, base_width=bw(128),
+            blocks=3, first_stride=2
         )
 
         # ============ 分类头 ============
@@ -225,36 +271,27 @@ class ResNeXt(nn.Module):
         self.fc = nn.Linear(2048, num_classes)
 
     def _make_stage(self, in_ch, out_ch, cardinality, base_width, blocks, first_stride):
-        """构建单个残差阶段（Stage），由多个ResNeXtBlock堆叠而成。
-        
-        阶段结构：
-            [ResNeXtBlock(stride=first_stride)] → [ResNeXtBlock]* → ... → [ResNeXtBlock]
-            第一个块的步长可能为2（下采样），其余块步长为1（保持空间尺寸）。
+        """构建单个残差阶段，由多个 ResNeXtBlock 堆叠而成。
         
         Args:
-            in_ch (int): 该阶段的输入通道数。
-            out_ch (int): 该阶段的输出通道数（所有块输出相同）。
-            cardinality (int): 分组卷积的组数（通常为8）。
-            base_width (int): 中间通道的基础宽度参数。
-                计算公式：mid_ch = cardinality × base_width
-                不同阶段值：layer1→16, layer2→32, layer3→64, layer4→128
-            blocks (int): 该阶段包含的ResNeXtBlock数量。
-            first_stride (int): 第一个块的步长，取值1或2。
-                stride=1: 保持特征图空间尺寸
-                stride=2: 特征图宽高各减半（下采样）
-            
+            in_ch: 输入通道数
+            out_ch: 输出通道数
+            cardinality: 分组卷积基数
+            base_width: 每组基础宽度
+            blocks: 块数量
+            first_stride: 第一个块的步长
         Returns:
-            nn.Sequential: 由多个ResNeXtBlock按顺序组成的模块。
+            nn.Sequential
         """
         layers = []
-        # 第一个块：可能进行下采样（stride可能为2），通道数从in_ch变为out_ch
         layers.append(
-            ResNeXtBlock(in_ch, out_ch, cardinality, base_width, stride=first_stride)
+            ResNeXtBlock(in_ch, out_ch, cardinality, base_width,
+                        stride=first_stride, use_se=self.use_se)
         )
-        # 后续块：步长为1（保持尺寸），通道数保持为out_ch
         for _ in range(1, blocks):
             layers.append(
-                ResNeXtBlock(out_ch, out_ch, cardinality, base_width, stride=1)
+                ResNeXtBlock(out_ch, out_ch, cardinality, base_width,
+                            stride=1, use_se=self.use_se)
             )
         return nn.Sequential(*layers)
 
