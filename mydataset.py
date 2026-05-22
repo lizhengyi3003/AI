@@ -74,9 +74,11 @@ def compute_sample_weights(dataset, class_weights):
         class_weights: 类别权重张量
         
     Returns:
-        torch.Tensor: 形状为 [len(dataset)]，每个元素是对应样本的权重
+        list[float]: 长度为 len(dataset) 的权重列表，
+            每个元素是对应样本的权重。
+            返回 list 而非 Tensor，以兼容 WeightedRandomSampler
+            的 weights 参数类型（Sequence[float]）。
     """
-    import torch
     sample_weights = []
     
     for idx in range(len(dataset)):
@@ -85,7 +87,7 @@ def compute_sample_weights(dataset, class_weights):
         # 样本权重 = 其所属类别的权重
         sample_weights.append(class_weights[label].item())
     
-    return torch.tensor(sample_weights, dtype=torch.float32)
+    return sample_weights
 
 
 def get_dataloaders(data_root, batch_size=32, num_workers=2, use_weighted_sampler=False):

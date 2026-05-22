@@ -18,8 +18,6 @@ class SELayer(nn.Module):
     通过对通道维度进行自适应重新校准，增强有用的特征通道并抑制无关通道。
     这是一个轻量级的注意力机制，仅增加约 2% 的参数量。
     
-    论文：Hu et al., "Squeeze-and-Excitation Networks", CVPR 2018
-    
     工作流程：
         1. Squeeze: 全局平均池化 → [B, C, 1, 1]
         2. Excitation: FC(C→C/r) → ReLU → FC(C/r→C) → Sigmoid

@@ -32,8 +32,6 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 # ============ 调整 sys.path 以支持直接运行脚本 ============
-# 问题：当直接运行 python utils/predict.py 时，Python 会将 utils/ 加入 sys.path[0]
-# 解决：优先加入项目根目录，并移除/调整 utils/ 目录优先级
 _current_dir = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录（utils/）
 _project_root = os.path.dirname(_current_dir)  # 项目根目录
 

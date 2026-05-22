@@ -53,12 +53,13 @@ rcParams['figure.dpi'] = 100
 rcParams['savefig.dpi'] = 150
 
 
-def test_and_analyze(device: torch.device, classes: List[str]) -> Tuple[float, Dict[str, Any]]:
+def test_and_analyze(device: torch.device, classes: List[str], exp_id: str = "01") -> Tuple[float, Dict[str, Any]]:
     """在测试集上评估模型并收集详细的预测信息。
     
     Args:
         device: 计算设备
         classes: 类别名称列表
+        exp_id: 实验编号，用于定位模型权重文件 (默认: "01")
         
     Returns:
         Tuple[float, Dict]: (准确率, 详细分析数据)
@@ -73,10 +74,11 @@ def test_and_analyze(device: torch.device, classes: List[str]) -> Tuple[float, D
     print("="*60)
     
     # 加载模型
+    model_path = f"model-out/{exp_id}/best.pth"
     model = ResNeXt(num_classes=len(classes)).to(device)
-    model.load_state_dict(torch.load("model-out/best.pth", map_location=device))
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
-    print(f"✓ 已加载模型权重: model-out/best.pth")
+    print(f"✓ 已加载模型权重: {model_path}")
     
     # 加载测试数据
     _, _, test_loader, _ = get_dataloaders("data")
@@ -509,7 +511,7 @@ def main() -> None:
     print(f"✓ Test samples: {num_test_samples}")
     
     # ============ 测试和分析 ============
-    accuracy, analysis_data = test_and_analyze(device, classes)
+    accuracy, analysis_data = test_and_analyze(device, classes, exp_id)
     
     # ============ 生成报告 ============
     print("\n" + "="*60)

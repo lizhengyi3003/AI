@@ -1,14 +1,33 @@
-# ResNeXt 项目核心依赖配置
+# ============================================================
+# ResNeXt 图像分类项目 — Python 依赖配置
+# ============================================================
 # 快速安装：pip install -r requirements.txt
-# GPU版本：python environment/install_pytorch.py
+# GPU 版本 PyTorch：python environment/install_pytorch.py
+#
+# 项目架构概览：
+#   model.py           — ResNeXt 网络定义（SELayer + 可变 cardinality）
+#   mydataset.py       — Caltech-101 数据加载与增强
+#   train.py / test.py — 训练/测试（支持 --exp-id --device 参数）
+#   utils/             — 推理/评估报告/训练曲线可视化
+#   environment/       — 设备检测/PyTorch 安装/环境验证
+#   log/{exp_id}/      — 按实验编号组织的日志/图表/评估报告
+#   model-out/{exp_id}/— 按实验编号组织的模型权重
+# ============================================================
 
-# 核心深度学习框架
-torch>=1.10.0                 # PyTorch深度学习框架
-torchvision>=0.11.0          # 计算机视觉库（数据变换等）
+# --- 核心深度学习框架（必需）---
+torch>=1.10.0                 # PyTorch — 模型定义、训练、推理
+torchvision>=0.11.0           # 计算机视觉 — 数据变换、预训练模型
 
-# 必需工具库
-tqdm>=4.62.0                 # 进度条显示
-Pillow>=8.3.0                # 图像处理库
-numpy>=1.21.0                # 数值计算库
-matplotlib>=3.5.0            # 图表绘制（训练曲线、评估报告）
-seaborn>=0.12.0              # 统计可视化（混淆矩阵热力图）
+# --- 数据处理（必需）---
+Pillow>=8.3.0                 # PIL — 图像加载与增强
+numpy>=1.21.0                 # 数值计算 — 数组操作、统计
+tqdm>=4.62.0                  # 进度条 — 训练/验证批次可视化
+
+# --- 可视化与报告（可选：仅 utils/report.py、utils/draw.py 需要）---
+matplotlib>=3.5.0             # 图表绘制 — 训练曲线、预测样例、学习率曲线
+seaborn>=0.12.0               # 统计可视化 — 混淆矩阵热力图
+
+# --- 数据版本管理（可选：DVC 命令行工具）---
+# 如需使用 DVC 进行数据/模型版本追踪，请单独安装：
+#   pip install dvc
+# 项目 .dvc 配置：data.dvc（数据集）、model-out.dvc（模型权重）
